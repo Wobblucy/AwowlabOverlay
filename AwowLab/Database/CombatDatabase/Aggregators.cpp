@@ -1,6 +1,8 @@
 #include "../CombatDatabase.h"
 #include "Core/StringInterner.h"
+#include "Core/MobWeightSettings.h"
 #include <algorithm>
+#include <string>
 #include <unordered_map>
 
 ActorCombatStats CombatDatabase::aggregateStats(
@@ -195,6 +197,14 @@ std::vector<PetCombatStats> CombatDatabase::aggregatePetBreakdown(
     auto petIt = ownerToPetsMap_.find(owner_guid_id);
     if (petIt == ownerToPetsMap_.end()) return result;
 
+    // Merge same-type pets so a Death Knight's army shows one "Lesser
+    // Ghoul" row instead of a hundred. WoW gives every spawn of a summon
+    // the same NPC id (the 6th dash field of the guid), so we group by
+    // that. A real named pet (a hunter's pet, keyed as Pet- with npc id 0)
+    // keeps its own row. The first guid seen for a group is kept as the
+    // representative so the renderer's name lookup still resolves.
+    std::unordered_map<uint64_t, size_t> groupIndex;  // key -> result slot
+
     // Iterate only over this owner's pets
     for (StringInterner::Id pet_id : petIt->second) {
         // Get combat table for this pet
@@ -206,12 +216,25 @@ std::vector<PetCombatStats> CombatDatabase::aggregatePetBreakdown(
 
         // Aggregate damage from this pet
         auto stats = aggregateStats(pet_id, *combat_table, start_time_ms, end_time_ms);
-        if (stats.total_amount > 0) {
+        if (stats.total_amount <= 0) continue;
+
+        // Group key: NPC id when the guid has one (summons), else the pet's
+        // own interned id so distinct real pets aren't collapsed together.
+        uint32_t npcId = MobWeightSettings::npcIdFromGuid(guidInterner().lookup(pet_id));
+        uint64_t key = npcId != 0 ? (uint64_t{1} << 32 | npcId)
+                                  : (uint64_t{2} << 32 | pet_id);
+
+        auto [it, inserted] = groupIndex.try_emplace(key, result.size());
+        if (inserted) {
             PetCombatStats pet_stats;
             pet_stats.pet_guid = std::move(stats.actor_guid);
             pet_stats.total_amount = stats.total_amount;
             pet_stats.hit_count = stats.hit_count;
             result.push_back(std::move(pet_stats));
+        } else {
+            auto& existing = result[it->second];
+            existing.total_amount += stats.total_amount;
+            existing.hit_count += stats.hit_count;
         }
     }
 
