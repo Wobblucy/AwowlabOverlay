@@ -493,6 +493,13 @@ static std::vector<ActorCombatStats> rankHostileSources(
             effective_source = ownerIt->second;
         }
 
+        // A non-player creature can be a player's summon (a hunter pet, a
+        // DK ghoul). Folding it into its owner would put that player in the
+        // enemy list, so drop it - a player-owned pet is not an enemy source.
+        if (guidInterner().lookup(effective_source).starts_with("Player-")) {
+            continue;
+        }
+
         const auto* combat_table = (type == CombatMetricType::HealingDone)
             ? &actor_table.healing_done_table
             : &actor_table.damage_dealt_table;

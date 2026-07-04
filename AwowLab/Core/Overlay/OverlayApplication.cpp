@@ -898,8 +898,15 @@ void OverlayApplication::renderUI() {
                                         break;
                                     case MeterViewType::DamageTaken:
                                     case MeterViewType::DamageTakenByAbility:
-                                    case MeterViewType::DamageTakenBy:
                                         metricType = CombatMetricType::DamageTaken;
+                                        break;
+                                    case MeterViewType::DamageTakenBy:
+                                        // Rows here are players ranked by the
+                                        // damage they DID to the selected enemy,
+                                        // so their drill-down is damage dealt -
+                                        // their abilities against that target -
+                                        // not the damage they took.
+                                        metricType = CombatMetricType::DamageDealt;
                                         break;
                                     case MeterViewType::FriendlyFire:
                                         // Restrict the actor's damage
