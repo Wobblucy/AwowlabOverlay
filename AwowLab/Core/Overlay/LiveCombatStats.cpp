@@ -35,8 +35,12 @@ void LiveCombatStats::detachSession() {
 void LiveCombatStats::refresh() {
     if (!session_) return;
 
-    // Rebuild combat database from session's ActorMap
-    combatDb_->loadFromActorMap(&session_->getActorMap());
+    // Rebuild combat database from session's ActorMap. Hand it the
+    // SPELL_SUMMON lineage so a player's summoned Creature-/Vehicle- pets
+    // (a Death Knight's army, etc.) merge into the player even when their
+    // damage events carry no owner in the advanced combat log block.
+    auto summonPetToOwner = session_->getSummonPetToOwnerMap();
+    combatDb_->loadFromActorMap(&session_->getActorMap(), &summonPetToOwner);
 
     // ResourceDatabase is a facade over the same ActorMap - it just
     // needs its pointer refreshed. HP timeline for the death recap

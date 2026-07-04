@@ -203,6 +203,13 @@ public:
     // Get the accumulated ActorMap (for database queries)
     const ActorMap& getActorMap() const { return actorMap_; }
 
+    // The pet -> owner lineage learned from SPELL_SUMMON, interned so the
+    // CombatDatabase can adopt a player's summoned Creature-/Vehicle- pets
+    // (a Death Knight's army, etc.) that the advanced combat log never tags
+    // with an owner. Built on demand from petToOwnerFromSummons_.
+    std::unordered_map<StringInterner::Id, StringInterner::Id>
+    getSummonPetToOwnerMap() const;
+
     // Absorb events accumulated since attach() or resetAll().
     // Not thread-safe with concurrent poll(); use tryLockActorMap() to gate iteration.
     const std::vector<AbsorbEvent>& getAbsorbEvents() const { return absorbEvents_; }

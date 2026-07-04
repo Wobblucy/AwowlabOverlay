@@ -1230,6 +1230,16 @@ uint32_t LiveLogSession::resolveOwnerGuidId(std::string_view source_guid,
     return 0;
 }
 
+std::unordered_map<StringInterner::Id, StringInterner::Id>
+LiveLogSession::getSummonPetToOwnerMap() const {
+    std::unordered_map<StringInterner::Id, StringInterner::Id> out;
+    out.reserve(petToOwnerFromSummons_.size());
+    for (const auto& [pet_guid, owner_guid] : petToOwnerFromSummons_) {
+        out[guidInterner().intern(pet_guid)] = guidInterner().intern(owner_guid);
+    }
+    return out;
+}
+
 bool LiveLogSession::parseAndStoreEvent(const std::vector<std::string_view>& tokens,
                                         std::string_view eventType,
                                         int32_t timestamp_ms) {

@@ -126,7 +126,19 @@ public:
     ~CombatDatabase() = default;
 
     // Load from ActorMap (facade pattern - no data copy, just pointer storage)
-    void loadFromActorMap(const ActorMap* actorMap);
+    //
+    // summonPetToOwner (optional) is the authoritative pet -> owner lineage
+    // learned from SPELL_SUMMON, keyed by interned guid id (summoned unit ->
+    // summoner). When supplied it lets a player adopt a genuinely-summoned
+    // Creature-/Vehicle- pet (a Death Knight's army, a mage's elemental, etc.)
+    // that the advanced combat log never tags with an owner. Without it we
+    // fall back to scanning record owner_guids, which can only safely adopt a
+    // player owner onto a real Pet- guid. Pass nullptr when no summon data is
+    // available (hand-built maps in tests, callers that don't track summons).
+    void loadFromActorMap(
+        const ActorMap* actorMap,
+        const std::unordered_map<StringInterner::Id, StringInterner::Id>* summonPetToOwner = nullptr
+    );
 
     // Check if database has data
     bool empty() const { return !actorMap_ || actorMap_->empty(); }
@@ -436,8 +448,12 @@ private:
         int32_t end_time_ms
     ) const;
 
-    // Build pet-to-owner mapping from combat records
-    void buildPetToOwnerMap();
+    // Build pet-to-owner mapping. Seeds from the SPELL_SUMMON lineage
+    // (authoritative) when available, then fills the rest by scanning
+    // record owner_guids for enemy-side summon merges.
+    void buildPetToOwnerMap(
+        const std::unordered_map<StringInterner::Id, StringInterner::Id>* summonPetToOwner
+    );
 
     // Build damage taken index from source ActorMap
     void buildDamageTakenIndex();
