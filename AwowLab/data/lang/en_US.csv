@@ -1,0 +1,147 @@
+
+menu.file,File
+
+panel.meter_1,Meter 1
+panel.meter_2,Meter 2
+panel.meter_3,Meter 3
+
+filter.pets,Pets
+
+meter.damage_done,Damage Done
+meter.healing_done,Healing Done
+meter.damage_taken,Damage Taken
+meter.cumulative,Cumulative
+meter.full_encounter,Full Encounter
+meter.melee,Melee
+meter.blacklist,Blacklist
+meter.tab.damage,Damage
+meter.tab.healing,Healing
+meter.tab.taken,Taken
+meter.tab.taken_by,Taken By
+meter.tab.dispels,Dispels
+meter.tab.interrupts,Interrupts
+meter.tab.deaths,Deaths
+meter.tab.friendly_fire,Friendly Fire
+meter.tab.overhealing,Overhealing
+meter.tab.healing_taken,Healing Taken
+meter.tab.cc_breaks,CC Breaks
+meter.tab.avoidance,Avoidance
+meter.tab.absorbs,Absorbs
+meter.tab.enemy_damage,Enemy Damage
+meter.tab.enemy_healing,Enemy Healing
+meter.total_absorbed,Damage Prevented
+meter.event_count,Absorb Events
+meter.total,Total
+status.no_absorb_data,No absorb data available
+status.no_enemy_damage_data,No enemy damage data available
+status.no_enemy_healing_data,No enemy healing data available
+breakdown.hit_distribution,Hit Distribution
+breakdown.hit_normal,Normal
+breakdown.hit_crit,Crit
+breakdown.hit_glance,Glance
+breakdown.hit_resisted,Resisted
+breakdown.hit_blocked,Blocked
+breakdown.hit_absorbed,Absorbed
+meter.category.damage,Damage
+meter.category.healing,Healing
+meter.category.utility,Utility
+meter.category.survivability,Survivability
+meter.avoidance,Avoidance
+meter.cc_breaks,CC Breaks
+meter.total_cc_breaks,Total CC Breaks
+meter.total_deaths,Total Deaths
+meter.total_avoidance,Total Avoidances
+status.no_avoidance_data,No avoidance data available
+status.no_overhealing_data,No overhealing data available
+status.no_healing_taken_data,No healing received data available
+status.no_friendly_fire_data,No friendly fire data available
+status.no_cc_break_data,No CC break data available
+status.no_death_data,No death data available
+meter.select_target,Select a Target
+meter.damage_to,Damage to
+meter.dispel_count,Dispels
+meter.interrupt_count,Interrupts
+
+status.no_combat_data,No combat data available
+status.no_dispel_data,No dispel data
+status.no_interrupt_data,No interrupt data
+status.no_damage_data,No damage data available
+status.no_healing_data,No healing data available
+status.no_damage_taken_data,No damage taken data for selected filter
+status.no_damage_to_target,No damage recorded for this target
+
+format.total_dps,Total: %s  |  DPS: %s
+format.total_hps,Total: %s  |  HPS: %s
+format.spell_id,Spell %u
+
+btn.close,Close
+
+breakdown.title,Player Breakdown
+breakdown.spells,Spells
+breakdown.damage_done,Damage Done
+breakdown.healing_done,Healing Done
+breakdown.damage_taken,Damage Taken
+breakdown.group_spells,+ Group Spells
+breakdown.group_tooltip,Drag spells onto group headers to group them.\nDouble-click header to rename.\nRight-click header to delete.
+breakdown.delete_group,Delete Group
+breakdown.rename,Rename
+breakdown.blacklist_spell,Blacklist Spell
+breakdown.unblacklist_spell,Unblacklist Spell
+breakdown.blacklisted_spells_title,Blacklisted Spells
+breakdown.dragging_melee,Dragging: Melee
+breakdown.dragging_spell,Dragging: Spell %u
+breakdown.click_to_see,Click a spell to see details
+breakdown.average,Average: %s
+breakdown.min,Min: %s
+breakdown.max,Max: %s
+breakdown.normal_hits,Normal Hits
+breakdown.critical_hits,Critical Hits
+breakdown.targets,Targets
+breakdown.pets_guardians,Pets & Guardians
+breakdown.no_data_graph,No %s data for graph
+breakdown.reset_selection,Reset Selection
+breakdown.drag_to_select_hint,(Drag on graph to select time range)
+breakdown.select_time_hint,Drag on graph to select a time range for analysis
+breakdown.selection_info,Selected: %u:%02u - %u:%02u (%u:%02u duration)
+breakdown.hover_tooltip,Time: %u:%02u\nClick and drag to select range
+breakdown.blacklisted_healing,Blacklisted Spells (excluded from healing reports)
+breakdown.blacklisted_damage,Blacklisted Spells (excluded from damage reports)
+breakdown.restore,Restore
+breakdown.more_targets,... and %zu more targets
+
+context_menu.open_wowhead,Open on Wowhead
+context_menu.open_spell_settings,Open Spell Settings
+context_menu.open_auto_annotations,Open in Auto Annotations
+context_menu.add_to_raid_note,Add to Raid Note
+
+breakdown.raw_tooltip,Pre-mitigation damage/healing
+breakdown.raw_tooltip_crit1,"For critical hits, we estimate raw damage"
+breakdown.raw_tooltip_crit2,by assuming a 200% crit multiplier.
+format.effective_total_overheal,Effective: %s  |  Total: %s (%.1f%% overheal)
+format.total_persec,Total: %s  |  %s: %s
+format.hits_crits,Hits: %u (Crits: %u)
+meter.click_hint,"Left-click to select, Right-click to expand"
+
+empty.select_encounter_hint,Pick an encounter or wait for combat
+empty.scrub_hint,Nothing recorded in this time window yet
+
+death_recap.title,Death Analysis
+death_recap.count_fmt,%zu deaths
+
+mobweight.title,Mob Weighting
+mobweight.enabled,Enable mob weighting
+mobweight.explainer,Damage done to weighted mobs counts at that fraction in the meters
+mobweight.active_hint,Mob weighting active
+mobweight.reset_all,Reset all weights
+mobweight.not_in_encounter,Saved weights not in this encounter
+mobweight.refresh,Refresh
+mobweight.hits_fmt,%zu hits
+
+context_menu.set_phase_trigger,Starts a new phase here
+context_menu.remove_phase_trigger,Remove phase trigger
+meter.phase_all,All phases
+meter.report,Report
+meter.report_tooltip,Copy a one-line summary for pasting into chat
+meter.report_copied,Copied!
+
+phases.title,Boss Phases

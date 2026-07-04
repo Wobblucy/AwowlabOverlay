@@ -1,0 +1,105 @@
+
+menu.file,Arquivo
+
+panel.meter_1,Medidor 1
+panel.meter_2,Medidor 2
+panel.meter_3,Medidor 3
+
+filter.pets,Animais de estimação
+
+meter.damage_done,Danos causados
+meter.healing_done,Cura concluída
+meter.damage_taken,Danos sofridos
+meter.cumulative,Acumulado
+meter.full_encounter,Encontro completo
+meter.melee,Corpo a corpo
+meter.blacklist,Lista negra
+meter.tab.damage,Danos
+meter.tab.healing,Cura
+meter.tab.taken,Levado
+meter.tab.taken_by,Levado por
+meter.tab.dispels,Dissipa
+meter.tab.interrupts,Interrupções
+meter.select_target,Selecione um alvo
+meter.damage_to,Danos a
+meter.dispel_count,Dissipa
+meter.interrupt_count,Interrupções
+
+status.no_combat_data,Não há dados de combate disponíveis
+status.no_dispel_data,Nenhum dado de dissipação
+status.no_interrupt_data,Nenhum dado de interrupção
+status.no_damage_data,Não há dados de danos disponíveis
+status.no_healing_data,Não há dados de cura disponíveis
+status.no_damage_taken_data,Não há dados de danos tomados para o filtro selecionado
+status.no_damage_to_target,Nenhum dano foi registrado para esse alvo
+
+format.total_dps,Total: %s  | DPS: %s
+format.total_hps,Total: %s  | HPS: %s
+format.spell_id,Feitiço %u
+
+btn.close,Fechar
+
+breakdown.title,Detalhamento dos jogadores
+breakdown.spells,Feitiços
+breakdown.damage_done,Danos causados
+breakdown.healing_done,Cura concluída
+breakdown.damage_taken,Danos sofridos
+breakdown.group_spells,+ Feitiços de grupo
+breakdown.group_tooltip,Arraste os feitiços para os cabeçalhos de grupo para agrupá-los.\nClique duas vezes no cabeçalho para renomeá-lo.\nClique com o botão direito do mouse no cabeçalho para excluí-lo.
+breakdown.delete_group,Excluir grupo
+breakdown.rename,Renomear
+breakdown.blacklist_spell,Feitiço de lista negra
+breakdown.unblacklist_spell,Feitiço de remoção da lista negra
+breakdown.blacklisted_spells_title,Feitiços na lista negra
+breakdown.dragging_melee,Arrastar: Corpo a corpo
+breakdown.dragging_spell,Arrastar: Feitiço %u
+breakdown.click_to_see,Clique em um feitiço para ver os detalhes
+breakdown.average,Média: %s
+breakdown.min,Mínimo: %s
+breakdown.max,Máximo: %s
+breakdown.normal_hits,Acertos normais
+breakdown.critical_hits,Acertos críticos
+breakdown.targets,Metas
+breakdown.pets_guardians,Animais de estimação e guardiões
+breakdown.no_data_graph,Não há dados %s para o gráfico
+breakdown.reset_selection,Seleção de redefinição
+breakdown.drag_to_select_hint,(Arraste o gráfico para selecionar o intervalo de tempo)
+breakdown.select_time_hint,Arraste o gráfico para selecionar um intervalo de tempo para análise
+breakdown.selection_info,Selecionado: %u:%02u - %u:%02u (%u:%02u duração)
+breakdown.hover_tooltip,Tempo: %u:%02u\nClique e arraste para selecionar o intervalo
+breakdown.blacklisted_healing,Feitiços na lista negra (excluídos dos relatórios de cura)
+breakdown.blacklisted_damage,Feitiços na lista negra (excluídos dos relatórios de danos)
+breakdown.restore,Restaurar
+breakdown.more_targets,... e %zu mais alvos
+
+breakdown.raw_tooltip,Dano/cura antes da mitigação
+breakdown.raw_tooltip_crit1,"Para acertos críticos, estimamos o dano bruto"
+breakdown.raw_tooltip_crit2,assumindo um multiplicador de crítico de 200%.
+format.effective_total_overheal,Efetivo: %s  |  Total: %s (%.1f%% de sobrecura)
+format.total_persec,Total: %s  |  %s: %s
+format.hits_crits,Acertos: %u (Críticos: %u)
+meter.click_hint,"Clique esquerdo para selecionar, clique direito para expandir"
+
+empty.select_encounter_hint,Escolha um confronto ou aguarde o combate
+empty.scrub_hint,Nada registrado nesta janela de tempo ainda
+
+death_recap.title,Análise de mortes
+death_recap.count_fmt,%zu mortes
+
+mobweight.title,Ponderação de monstros
+mobweight.enabled,Ativar ponderação de monstros
+mobweight.explainer,O dano causado a monstros ponderados conta apenas essa fração nos medidores
+mobweight.active_hint,Ponderação de monstros ativa
+mobweight.reset_all,Redefinir todas as ponderações
+mobweight.not_in_encounter,Ponderações salvas que não estão neste combate
+mobweight.refresh,Atualizar
+mobweight.hits_fmt,%zu acertos
+
+context_menu.set_phase_trigger,Inicia uma nova fase aqui
+context_menu.remove_phase_trigger,Remover gatilho de fase
+meter.phase_all,Todas as fases
+meter.report,Relatório
+meter.report_tooltip,Copia um resumo de uma linha para colar no chat
+meter.report_copied,Copiado!
+
+phases.title,Fases do chefe

@@ -1,0 +1,105 @@
+
+menu.file,Archivo
+
+panel.meter_1,Contador 1
+panel.meter_2,Contador 2
+panel.meter_3,Contador 3
+
+filter.pets,Mascotas
+
+meter.damage_done,Daños causados
+meter.healing_done,Curación realizada
+meter.damage_taken,Daños sufridos
+meter.cumulative,Acumulado
+meter.full_encounter,Encuentro completo
+meter.melee,Melee
+meter.blacklist,Lista negra
+meter.tab.damage,Daños
+meter.tab.healing,Curación
+meter.tab.taken,Tomado
+meter.tab.taken_by,Tomado por
+meter.tab.dispels,Disipa
+meter.tab.interrupts,Interrupciones
+meter.select_target,Seleccione un objetivo
+meter.damage_to,Daños en
+meter.dispel_count,Disipa
+meter.interrupt_count,Interrupciones
+
+status.no_combat_data,No se dispone de datos de combate
+status.no_dispel_data,No hay datos de disipación
+status.no_interrupt_data,Sin datos de interrupción
+status.no_damage_data,No se dispone de datos sobre daños
+status.no_healing_data,No se dispone de datos de curación
+status.no_damage_taken_data,No hay datos de daños para el filtro seleccionado
+status.no_damage_to_target,No se han registrado daños en este objetivo
+
+format.total_dps,Total: %s  | DPS: %s
+format.total_hps,Total: %s  | HPS: %s
+format.spell_id,Hechizo %u
+
+btn.close,Cerrar
+
+breakdown.title,Desglose de jugadores
+breakdown.spells,Hechizos
+breakdown.damage_done,Daños causados
+breakdown.healing_done,Curación realizada
+breakdown.damage_taken,Daños sufridos
+breakdown.group_spells,+ Hechizos de grupo
+breakdown.group_tooltip,Arrastre los hechizos a los encabezados de grupo para agruparlos.\NHaga doble clic en el encabezado para renombrarlo.\NHaga clic con el botón derecho en el encabezado para eliminarlo.
+breakdown.delete_group,Borrar grupo
+breakdown.rename,Cambie el nombre de
+breakdown.blacklist_spell,Hechizo de la lista negra
+breakdown.unblacklist_spell,Hechizo de eliminación de la lista negra
+breakdown.blacklisted_spells_title,Hechizos de la lista negra
+breakdown.dragging_melee,Arrastre: Cuerpo a cuerpo
+breakdown.dragging_spell,Arrastrar: Hechizo %u
+breakdown.click_to_see,Haz clic en un hechizo para ver los detalles
+breakdown.average,Promedio: %s
+breakdown.min,Mín: %s
+breakdown.max,Max: %s
+breakdown.normal_hits,Golpes normales
+breakdown.critical_hits,Golpes críticos
+breakdown.targets,Objetivos
+breakdown.pets_guardians,Mascotas y guardianes
+breakdown.no_data_graph,No hay datos %s para el gráfico
+breakdown.reset_selection,Reiniciar selección
+breakdown.drag_to_select_hint,(Arrastre sobre el gráfico para seleccionar el intervalo de tiempo)
+breakdown.select_time_hint,Arrastre sobre el gráfico para seleccionar un intervalo de tiempo para el análisis
+breakdown.selection_info,Seleccionado: %u:%02u - %u:%02u (%u:%02u duración)
+breakdown.hover_tooltip,Hora: %u:%02u\nPulsa y arrastra para seleccionar el rango
+breakdown.blacklisted_healing,Hechizos de la lista negra (excluidos de los informes de curación)
+breakdown.blacklisted_damage,Hechizos de la lista negra (excluidos de los informes de daños)
+breakdown.restore,Restaurar
+breakdown.more_targets,... y %zu más objetivos
+
+breakdown.raw_tooltip,Daño/sanación antes de mitigación
+breakdown.raw_tooltip_crit1,"Para golpes críticos, estimamos el daño bruto"
+breakdown.raw_tooltip_crit2,asumiendo un multiplicador de crítico de 200%.
+format.effective_total_overheal,Efectivo: %s  |  Total: %s (%.1f%% de sobresanación)
+format.total_persec,Total: %s  |  %s: %s
+format.hits_crits,Golpes: %u (Críticos: %u)
+meter.click_hint,"Clic izquierdo para seleccionar, clic derecho para expandir"
+
+empty.select_encounter_hint,Elige un encuentro o espera al combate
+empty.scrub_hint,Aún no hay nada registrado en esta ventana de tiempo
+
+death_recap.title,Análisis de muertes
+death_recap.count_fmt,%zu muertes
+
+mobweight.title,Ponderación de monstruos
+mobweight.enabled,Activar ponderación de monstruos
+mobweight.explainer,El daño hecho a monstruos ponderados cuenta solo esa fracción en los medidores
+mobweight.active_hint,Ponderación de monstruos activa
+mobweight.reset_all,Restablecer todas las ponderaciones
+mobweight.not_in_encounter,Ponderaciones guardadas que no están en este combate
+mobweight.refresh,Actualizar
+mobweight.hits_fmt,%zu golpes
+
+context_menu.set_phase_trigger,Inicia una nueva fase aquí
+context_menu.remove_phase_trigger,Quitar activador de fase
+meter.phase_all,Todas las fases
+meter.report,Informe
+meter.report_tooltip,Copia un resumen de una línea para pegarlo en el chat
+meter.report_copied,¡Copiado!
+
+phases.title,Fases del jefe

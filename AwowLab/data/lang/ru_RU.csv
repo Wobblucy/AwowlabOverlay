@@ -1,0 +1,105 @@
+
+menu.file,Файл
+
+panel.meter_1,Счетчик 1
+panel.meter_2,Счетчик 2
+panel.meter_3,Счетчик 3
+
+filter.pets,Домашние животные
+
+meter.damage_done,Нанесенный ущерб
+meter.healing_done,Исцеление завершено
+meter.damage_taken,Нанесенный урон
+meter.cumulative,Кумулятивный
+meter.full_encounter,Полная встреча
+meter.melee,Melee
+meter.blacklist,Черный список
+meter.tab.damage,Урон
+meter.tab.healing,Исцеление
+meter.tab.taken,Взято
+meter.tab.taken_by,Взято
+meter.tab.dispels,Рассеивает
+meter.tab.interrupts,Прерывания
+meter.select_target,Выберите цель
+meter.damage_to,Повреждение
+meter.dispel_count,Рассеивает
+meter.interrupt_count,Прерывания
+
+status.no_combat_data,Данные о боевых действиях отсутствуют
+status.no_dispel_data,Нет данных о рассеивании
+status.no_interrupt_data,Нет данных о прерывании
+status.no_damage_data,Данные о повреждениях отсутствуют
+status.no_healing_data,Данные о заживлении отсутствуют
+status.no_damage_taken_data,Данные о повреждениях для выбранного фильтра отсутствуют
+status.no_damage_to_target,Урон для этой цели не зафиксирован
+
+format.total_dps,Всего: %s  | DPS: %s
+format.total_hps,Всего: %s  | HPS: %s
+format.spell_id,Заклинание %u
+
+btn.close,Закрыть
+
+breakdown.title,Разбивка игроков
+breakdown.spells,Заклинания
+breakdown.damage_done,Нанесенный ущерб
+breakdown.healing_done,Исцеление завершено
+breakdown.damage_taken,Нанесенный урон
+breakdown.group_spells,+ Групповые заклинания
+breakdown.group_tooltip,"Перетащите заклинания на заголовки групп, чтобы сгруппировать их.\nДвойной щелчок по заголовку - переименование.\nПравый щелчок по заголовку - удаление."
+breakdown.delete_group,Удалить группу
+breakdown.rename,Переименовать
+breakdown.blacklist_spell,Заклинание черного списка
+breakdown.unblacklist_spell,Заклинание исключения из черного списка
+breakdown.blacklisted_spells_title,Заклинания из черного списка
+breakdown.dragging_melee,Перетаскивание: Melee
+breakdown.dragging_spell,Перетаскивание: Заклинание %u
+breakdown.click_to_see,"Нажмите на заклинание, чтобы узнать подробности"
+breakdown.average,Среднее: %s
+breakdown.min,Мин: %s
+breakdown.max,Макс: %s
+breakdown.normal_hits,Обычные хиты
+breakdown.critical_hits,Критические удары
+breakdown.targets,Цели
+breakdown.pets_guardians,Домашние животные и опекуны
+breakdown.no_data_graph,Нет данных %s для графика
+breakdown.reset_selection,Выбор сброса
+breakdown.drag_to_select_hint,"(Перетащите график, чтобы выбрать временной диапазон)"
+breakdown.select_time_hint,"Перетащите на график, чтобы выбрать временной диапазон для анализа"
+breakdown.selection_info,Избранное: %u:%02u - %u:%02u (%u:%02u продолжительность)
+breakdown.hover_tooltip,"Время: %u:%02u\nНажмите и перетащите, чтобы выбрать диапазон"
+breakdown.blacklisted_healing,Заклинания из черного списка (исключены из отчетов о лечении)
+breakdown.blacklisted_damage,Заклинания из черного списка (исключены из отчетов об уроне)
+breakdown.restore,Восстановить
+breakdown.more_targets,... и %zu больше целей
+
+breakdown.raw_tooltip,Урон/исцеление до поглощения
+breakdown.raw_tooltip_crit1,Для критических ударов исходный урон оценивается
+breakdown.raw_tooltip_crit2,из расчёта множителя критического удара 200%.
+format.effective_total_overheal,Эффективно: %s  |  Всего: %s (%.1f%% избыточного исцеления)
+format.total_persec,Всего: %s  |  %s: %s
+format.hits_crits,Удары: %u (Криты: %u)
+meter.click_hint,"ЛКМ — выбрать, ПКМ — развернуть"
+
+empty.select_encounter_hint,Выберите бой или дождитесь начала боя
+empty.scrub_hint,В этом отрезке времени пока ничего не записано
+
+death_recap.title,Анализ смертей
+death_recap.count_fmt,Смертей: %zu
+
+mobweight.title,Взвешивание монстров
+mobweight.enabled,Включить взвешивание монстров
+mobweight.explainer,Урон по взвешенным монстрам учитывается в счетчиках лишь в этой доле
+mobweight.active_hint,Взвешивание монстров активно
+mobweight.reset_all,Сбросить все веса
+mobweight.not_in_encounter,Сохранённые веса вне этого боя
+mobweight.refresh,Обновить
+mobweight.hits_fmt,%zu попаданий
+
+context_menu.set_phase_trigger,Начинает новую фазу здесь
+context_menu.remove_phase_trigger,Убрать триггер фазы
+meter.phase_all,Все фазы
+meter.report,Отчёт
+meter.report_tooltip,Скопировать однострочную сводку для вставки в чат
+meter.report_copied,Скопировано!
+
+phases.title,Фазы босса

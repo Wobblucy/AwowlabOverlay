@@ -1,0 +1,105 @@
+
+menu.file,Fichier
+
+panel.meter_1,Compteur 1
+panel.meter_2,Compteur 2
+panel.meter_3,Compteur 3
+
+filter.pets,Animaux de compagnie
+
+meter.damage_done,Dommages causés
+meter.healing_done,Guérison accomplie
+meter.damage_taken,Dommages subis
+meter.cumulative,Cumulatif
+meter.full_encounter,Rencontre totale
+meter.melee,Mêlée
+meter.blacklist,Liste noire
+meter.tab.damage,Dommages
+meter.tab.healing,Guérison
+meter.tab.taken,Pris
+meter.tab.taken_by,Pris par
+meter.tab.dispels,Dispense
+meter.tab.interrupts,Interruptions
+meter.select_target,Sélectionner une cible
+meter.damage_to,Dommages aux
+meter.dispel_count,Dispense
+meter.interrupt_count,Interruptions
+
+status.no_combat_data,Aucune donnée de combat disponible
+status.no_dispel_data,Pas de données de dissipation
+status.no_interrupt_data,Pas de données d'interruption
+status.no_damage_data,Aucune donnée sur les dommages n'est disponible
+status.no_healing_data,Aucune donnée de guérison disponible
+status.no_damage_taken_data,Pas de données sur les dommages subis par le filtre sélectionné
+status.no_damage_to_target,Aucun dommage enregistré pour cette cible
+
+format.total_dps,Total : %s  | DPS : %s
+format.total_hps,Total : %s  | HPS : %s
+format.spell_id,Sort %u
+
+btn.close,Fermer
+
+breakdown.title,Répartition des joueurs
+breakdown.spells,Sortilèges
+breakdown.damage_done,Dommages causés
+breakdown.healing_done,Guérison accomplie
+breakdown.damage_taken,Dommages subis
+breakdown.group_spells,+ sorts de groupe
+breakdown.group_tooltip,Faites glisser les sorts sur les en-têtes de groupe pour les regrouper.\NDouble-cliquez sur l'en-tête pour le renommer.\NCliquez sur l'en-tête avec le bouton droit de la souris pour le supprimer.
+breakdown.delete_group,Supprimer un groupe
+breakdown.rename,Renommer
+breakdown.blacklist_spell,Sort de liste noire
+breakdown.unblacklist_spell,Sort d'annulation de la liste
+breakdown.blacklisted_spells_title,Sorts sur liste noire
+breakdown.dragging_melee,Traînée : Mêlée
+breakdown.dragging_spell,Traînée : Sort %u
+breakdown.click_to_see,Cliquez sur un sort pour voir les détails
+breakdown.average,Moyenne : %s
+breakdown.min,Min : %s
+breakdown.max,Max : %s
+breakdown.normal_hits,Coups de pouce normaux
+breakdown.critical_hits,Coups critiques
+breakdown.targets,Objectifs
+breakdown.pets_guardians,Animaux de compagnie et gardiens
+breakdown.no_data_graph,Pas de données %s pour le graphique
+breakdown.reset_selection,Sélection de la réinitialisation
+breakdown.drag_to_select_hint,(Glisser sur le graphique pour sélectionner la plage de temps)
+breakdown.select_time_hint,Glisser sur le graphique pour sélectionner une plage de temps pour l'analyse
+breakdown.selection_info,Sélectionné : %u :%02u - [PH2]] :%02u (%u :%02u durée)
+breakdown.hover_tooltip,Temps : %u :%02u\NCliquez et faites glisser pour sélectionner la plage
+breakdown.blacklisted_healing,Sorts sur liste noire (exclus des rapports de guérison)
+breakdown.blacklisted_damage,Sorts sur liste noire (exclus des rapports de dégâts)
+breakdown.restore,Restaurer
+breakdown.more_targets,... et %zu plus de cibles
+
+breakdown.raw_tooltip,Dégâts/soins avant mitigation
+breakdown.raw_tooltip_crit1,"Pour les coups critiques, les dégâts bruts sont estimés"
+breakdown.raw_tooltip_crit2,en supposant un multiplicateur de critique de 200%.
+format.effective_total_overheal,Effectif : %s  |  Total : %s (%.1f%% de surguérison)
+format.total_persec,Total : %s  |  %s : %s
+format.hits_crits,Coups : %u (Critiques : %u)
+meter.click_hint,"Clic gauche pour sélectionner, clic droit pour développer"
+
+empty.select_encounter_hint,Choisissez une rencontre ou attendez le combat
+empty.scrub_hint,Rien d'enregistré dans cette fenêtre de temps pour l'instant
+
+death_recap.title,Analyse des morts
+death_recap.count_fmt,%zu morts
+
+mobweight.title,Pondération des monstres
+mobweight.enabled,Activer la pondération des monstres
+mobweight.explainer,Les dégâts infligés aux monstres pondérés ne comptent qu'à cette fraction dans les compteurs
+mobweight.active_hint,Pondération des monstres active
+mobweight.reset_all,Réinitialiser toutes les pondérations
+mobweight.not_in_encounter,Pondérations enregistrées absentes de ce combat
+mobweight.refresh,Actualiser
+mobweight.hits_fmt,%zu coups
+
+context_menu.set_phase_trigger,Commence une nouvelle phase ici
+context_menu.remove_phase_trigger,Retirer le déclencheur de phase
+meter.phase_all,Toutes les phases
+meter.report,Rapport
+meter.report_tooltip,Copier un résumé d'une ligne à coller dans le chat
+meter.report_copied,Copié !
+
+phases.title,Phases du boss

@@ -1,0 +1,105 @@
+
+menu.file,檔案
+
+panel.meter_1,計量表 1
+panel.meter_2,計量表 2
+panel.meter_3,計量表 3
+
+filter.pets,寵物
+
+meter.damage_done,已造成的損害
+meter.healing_done,治療完成
+meter.damage_taken,受到的損害
+meter.cumulative,累計
+meter.full_encounter,完整邂逅
+meter.melee,混戰
+meter.blacklist,黑名單
+meter.tab.damage,損壞
+meter.tab.healing,癒合
+meter.tab.taken,已採取
+meter.tab.taken_by,採取
+meter.tab.dispels,驅散
+meter.tab.interrupts,中斷
+meter.select_target,選擇目標
+meter.damage_to,損壞
+meter.dispel_count,驅散
+meter.interrupt_count,中斷
+
+status.no_combat_data,無戰鬥資料
+status.no_dispel_data,無驅散資料
+status.no_interrupt_data,無中斷資料
+status.no_damage_data,無損壞資料
+status.no_healing_data,無療癒資料
+status.no_damage_taken_data,選取的篩選器沒有損壞資料
+status.no_damage_to_target,此目標無損傷記錄
+
+format.total_dps,總計: %s  | DPS: %s
+format.total_hps,總計: %s  | HPS: %s
+format.spell_id,咒語 %u
+
+btn.close,關閉
+
+breakdown.title,球員分佈
+breakdown.spells,法術
+breakdown.damage_done,已造成的損害
+breakdown.healing_done,治療完成
+breakdown.damage_taken,受到的損害
+breakdown.group_spells,+ 群體法術
+breakdown.group_tooltip,雙擊標題可重新命名。
+breakdown.delete_group,刪除群組
+breakdown.rename,重新命名
+breakdown.blacklist_spell,黑名單咒語
+breakdown.unblacklist_spell,解除黑名單咒語
+breakdown.blacklisted_spells_title,黑名單上的法術
+breakdown.dragging_melee,拖曳：近戰
+breakdown.dragging_spell,拖曳：咒語 %u
+breakdown.click_to_see,按一下咒語以查看詳細資訊
+breakdown.average,平均值：%s
+breakdown.min,最小值：%s
+breakdown.max,最大值：%s
+breakdown.normal_hits,正常點數
+breakdown.critical_hits,關鍵一擊
+breakdown.targets,目標
+breakdown.pets_guardians,寵物與監護人
+breakdown.no_data_graph,圖表中沒有 %s 資料
+breakdown.reset_selection,重設選擇
+breakdown.drag_to_select_hint,(在圖表上拖曳以選擇時間範圍）
+breakdown.select_time_hint,在圖表上拖曳，選擇分析的時間範圍
+breakdown.selection_info,已選取：%u：[[PH1］ - %u:%02u （%u:%02u持續時間）
+breakdown.hover_tooltip,時間：%u:%02u（點選並拖曳以選取範圍
+breakdown.blacklisted_healing,黑名單上的法術（從治療報告中排除）
+breakdown.blacklisted_damage,黑名單上的法術（從損傷報告中排除）
+breakdown.restore,還原
+breakdown.more_targets,...和%zu更多的目標
+
+breakdown.raw_tooltip,減傷前的傷害/治療
+breakdown.raw_tooltip_crit1,對於爆擊，我們會估算原始傷害
+breakdown.raw_tooltip_crit2,按 200% 爆擊倍率計算。
+format.effective_total_overheal,有效: %s  |  總計: %s (%.1f%% 過量治療)
+format.total_persec,總計: %s  |  %s: %s
+format.hits_crits,命中: %u (爆擊: %u)
+meter.click_hint,左鍵選擇，右鍵展開
+
+empty.select_encounter_hint,選擇一場戰鬥或等待戰鬥開始
+empty.scrub_hint,此時間區段內還沒有紀錄
+
+death_recap.title,死亡分析
+death_recap.count_fmt,%zu 次死亡
+
+mobweight.title,怪物權重
+mobweight.enabled,啟用怪物權重
+mobweight.explainer,對已設權重怪物造成的傷害在統計中僅按該比例計入
+mobweight.active_hint,怪物權重已生效
+mobweight.reset_all,重設所有權重
+mobweight.not_in_encounter,本場戰鬥中沒有的已儲存權重
+mobweight.refresh,重新整理
+mobweight.hits_fmt,%zu 次命中
+
+context_menu.set_phase_trigger,從此處開始新階段
+context_menu.remove_phase_trigger,移除階段觸發
+meter.phase_all,全部階段
+meter.report,戰報
+meter.report_tooltip,複製單行摘要以貼到聊天框
+meter.report_copied,已複製！
+
+phases.title,首領階段

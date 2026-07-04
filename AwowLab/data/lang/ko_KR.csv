@@ -1,0 +1,105 @@
+
+menu.file,파일
+
+panel.meter_1,미터 1
+panel.meter_2,미터 2
+panel.meter_3,미터 3
+
+filter.pets,애완동물
+
+meter.damage_done,손상된 피해
+meter.healing_done,치유 완료
+meter.damage_taken,받은 피해
+meter.cumulative,누적
+meter.full_encounter,전체 만남
+meter.melee,근접
+meter.blacklist,블랙리스트
+meter.tab.damage,피해
+meter.tab.healing,힐링
+meter.tab.taken,촬영
+meter.tab.taken_by,찍은 사람
+meter.tab.dispels,Dispels
+meter.tab.interrupts,인터럽트
+meter.select_target,대상 선택
+meter.damage_to,다음 대상에 대한 손상
+meter.dispel_count,Dispels
+meter.interrupt_count,인터럽트
+
+status.no_combat_data,사용 가능한 전투 데이터 없음
+status.no_dispel_data,데이터 삭제 금지
+status.no_interrupt_data,인터럽트 데이터 없음
+status.no_damage_data,사용 가능한 손상 데이터 없음
+status.no_healing_data,사용 가능한 치유 데이터 없음
+status.no_damage_taken_data,선택한 필터에 대해 손상된 데이터 없음
+status.no_damage_to_target,이 대상에 대한 피해가 기록되지 않았습니다
+
+format.total_dps,총합: %s  | DPS: %s
+format.total_hps,합계: %s  | HPS: %s
+format.spell_id,주문 %u
+
+btn.close,닫기
+
+breakdown.title,플레이어 분석
+breakdown.spells,주문
+breakdown.damage_done,손상된 피해
+breakdown.healing_done,치유 완료
+breakdown.damage_taken,받은 피해
+breakdown.group_spells,+ 그룹 주문
+breakdown.group_tooltip,그룹 헤더로 주문을 끌어 그룹화합니다.\n헤더를 두 번 클릭하여 이름을 바꿉니다.\n헤더를 마우스 오른쪽 버튼으로 클릭하여 삭제합니다.
+breakdown.delete_group,그룹 삭제
+breakdown.rename,이름 바꾸기
+breakdown.blacklist_spell,블랙리스트 주문
+breakdown.unblacklist_spell,블랙리스트 해제 주문
+breakdown.blacklisted_spells_title,블랙리스트 주문
+breakdown.dragging_melee,드래그: 근접
+breakdown.dragging_spell,드래그: 주문 %u
+breakdown.click_to_see,자세한 내용을 보려면 주문을 클릭하세요
+breakdown.average,평균: %s
+breakdown.min,Min: 최소: %s
+breakdown.max,최대: %s
+breakdown.normal_hits,일반 조회수
+breakdown.critical_hits,크리티컬 히트
+breakdown.targets,타겟
+breakdown.pets_guardians,반려동물 및 보호자
+breakdown.no_data_graph,그래프에 대한 %s 데이터 없음
+breakdown.reset_selection,선택 항목 초기화
+breakdown.drag_to_select_hint,(그래프에서 드래그하여 시간 범위 선택)
+breakdown.select_time_hint,그래프를 드래그하여 분석할 시간 범위를 선택합니다
+breakdown.selection_info,선택됨: %u:%02u - %u:%02u (%u:%02u 기간)
+breakdown.hover_tooltip,시간: %u:%02u\n클릭하고 드래그하여 범위 선택
+breakdown.blacklisted_healing,블랙리스트 주문(치유 보고에서 제외)
+breakdown.blacklisted_damage,블랙리스트 주문(피해 보고에서 제외)
+breakdown.restore,복원
+breakdown.more_targets,... 그리고 %zu 더 많은 대상
+
+breakdown.raw_tooltip,피해 감소 적용 전 피해/치유
+breakdown.raw_tooltip_crit1,치명타의 경우 원래 피해량을 추정합니다
+breakdown.raw_tooltip_crit2,치명타 배율을 200%로 가정합니다.
+format.effective_total_overheal,유효: %s  |  전체: %s (%.1f%% 과다 치유)
+format.total_persec,전체: %s  |  %s: %s
+format.hits_crits,적중: %u (치명타: %u)
+meter.click_hint,"좌클릭으로 선택, 우클릭으로 펼치기"
+
+empty.select_encounter_hint,전투를 선택하거나 전투를 기다리세요
+empty.scrub_hint,이 시간 구간에는 아직 기록이 없습니다
+
+death_recap.title,죽음 분석
+death_recap.count_fmt,죽음 %zu회
+
+mobweight.title,몹 가중치
+mobweight.enabled,몹 가중치 사용
+mobweight.explainer,가중치가 적용된 몹에게 입힌 피해는 미터에 해당 비율만큼만 집계됩니다
+mobweight.active_hint,몹 가중치 적용 중
+mobweight.reset_all,모든 가중치 초기화
+mobweight.not_in_encounter,이 전투에 없는 저장된 가중치
+mobweight.refresh,새로 고침
+mobweight.hits_fmt,%zu회 적중
+
+context_menu.set_phase_trigger,여기서 새 단계 시작
+context_menu.remove_phase_trigger,단계 트리거 제거
+meter.phase_all,모든 단계
+meter.report,보고
+meter.report_tooltip,채팅에 붙여넣을 한 줄 요약 복사
+meter.report_copied,복사됨!
+
+phases.title,우두머리 단계

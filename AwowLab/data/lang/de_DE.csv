@@ -1,0 +1,105 @@
+
+menu.file,Datei
+
+panel.meter_1,Messgerät 1
+panel.meter_2,Messgerät 2
+panel.meter_3,Messgerät 3
+
+filter.pets,Haustiere
+
+meter.damage_done,Geschehener Schaden
+meter.healing_done,Heilung Geschehen
+meter.damage_taken,Genommener Schaden
+meter.cumulative,Kumulativ
+meter.full_encounter,Vollständige Begegnung
+meter.melee,Nahkampf
+meter.blacklist,Schwarze Liste
+meter.tab.damage,Schaden
+meter.tab.healing,Heilung
+meter.tab.taken,Aufgenommen
+meter.tab.taken_by,Aufgenommen von
+meter.tab.dispels,Vertreibt
+meter.tab.interrupts,Unterbrechungen
+meter.select_target,Wählen Sie ein Ziel
+meter.damage_to,Beschädigung von
+meter.dispel_count,Vertreibt
+meter.interrupt_count,Unterbrechungen
+
+status.no_combat_data,Keine Kampfdaten verfügbar
+status.no_dispel_data,Keine Daten zerstreuen
+status.no_interrupt_data,Keine Unterbrechungsdaten
+status.no_damage_data,Keine Schadensdaten verfügbar
+status.no_healing_data,Keine Daten zur Heilung verfügbar
+status.no_damage_taken_data,Keine Daten zur Schadensaufnahme für den ausgewählten Filter
+status.no_damage_to_target,Für dieses Ziel wurde kein Schaden registriert
+
+format.total_dps,Gesamt: %s  | DPS: %s
+format.total_hps,Insgesamt: %s  | HPS: %s
+format.spell_id,Zauberspruch %u
+
+btn.close,Schließen Sie
+
+breakdown.title,Spieler Aufschlüsselung
+breakdown.spells,Zaubersprüche
+breakdown.damage_done,Geschehener Schaden
+breakdown.healing_done,Heilung Geschehen
+breakdown.damage_taken,Genommener Schaden
+breakdown.group_spells,+ Gruppenzauber
+breakdown.group_tooltip,"Ziehen Sie die Zaubersprüche auf die Gruppenüberschriften, um sie zu gruppieren.\nDoppelklicken Sie auf die Überschrift, um sie umzubenennen.\nRechtsklicken Sie auf die Überschrift, um sie zu löschen."
+breakdown.delete_group,Gruppe löschen
+breakdown.rename,Umbenennen
+breakdown.blacklist_spell,Schwarzer Listenzauber
+breakdown.unblacklist_spell,Bannkreis aufheben
+breakdown.blacklisted_spells_title,Auf der schwarzen Liste stehende Zaubersprüche
+breakdown.dragging_melee,Ziehen: Nahkampf
+breakdown.dragging_spell,Ziehen: Zauberspruch %u
+breakdown.click_to_see,"Klicken Sie auf einen Zauberspruch, um Details zu sehen"
+breakdown.average,Durchschnittlich: %s
+breakdown.min,Min: %s
+breakdown.max,Max: %s
+breakdown.normal_hits,Normale Treffer
+breakdown.critical_hits,Kritische Treffer
+breakdown.targets,Ziele
+breakdown.pets_guardians,Haustiere & Wächter
+breakdown.no_data_graph,Keine %s-Daten für Diagramm
+breakdown.reset_selection,Auswahl zurücksetzen
+breakdown.drag_to_select_hint,"(Ziehen Sie am Diagramm, um den Zeitbereich auszuwählen)"
+breakdown.select_time_hint,"Ziehen Sie auf dem Diagramm, um einen Zeitbereich für die Analyse auszuwählen"
+breakdown.selection_info,Ausgewählt: %u:%02u - %u:%02u (%u:%02u Dauer)
+breakdown.hover_tooltip,"Zeit: %u:%02u\nKlicken und ziehen, um den Bereich auszuwählen"
+breakdown.blacklisted_healing,Auf der schwarzen Liste stehende Zaubersprüche (von Heilungsberichten ausgeschlossen)
+breakdown.blacklisted_damage,Auf der schwarzen Liste stehende Zaubersprüche (von Schadensberichten ausgeschlossen)
+breakdown.restore,Wiederherstellen
+breakdown.more_targets,... und %zu weitere Ziele
+
+breakdown.raw_tooltip,Schaden/Heilung vor Schadensminderung
+breakdown.raw_tooltip_crit1,Bei kritischen Treffern wird der Rohschaden geschätzt
+breakdown.raw_tooltip_crit2,mit einem angenommenen 200%-Krit-Multiplikator.
+format.effective_total_overheal,Effektiv: %s  |  Gesamt: %s (%.1f%% Überheilung)
+format.total_persec,Gesamt: %s  |  %s: %s
+format.hits_crits,Treffer: %u (Krits: %u)
+meter.click_hint,"Linksklick zum Auswählen, Rechtsklick zum Aufklappen"
+
+empty.select_encounter_hint,Wähle einen Kampf aus oder warte auf Kampfdaten
+empty.scrub_hint,In diesem Zeitfenster wurde noch nichts aufgezeichnet
+
+death_recap.title,Todesanalyse
+death_recap.count_fmt,%zu Tode
+
+mobweight.title,Mob-Gewichtung
+mobweight.enabled,Mob-Gewichtung aktivieren
+mobweight.explainer,Schaden an gewichteten Mobs zählt in den Messgeräten nur zu diesem Anteil
+mobweight.active_hint,Mob-Gewichtung aktiv
+mobweight.reset_all,Alle Gewichtungen zurücksetzen
+mobweight.not_in_encounter,Gespeicherte Gewichtungen außerhalb dieses Kampfes
+mobweight.refresh,Aktualisieren
+mobweight.hits_fmt,%zu Treffer
+
+context_menu.set_phase_trigger,Startet hier eine neue Phase
+context_menu.remove_phase_trigger,Phasenauslöser entfernen
+meter.phase_all,Alle Phasen
+meter.report,Bericht
+meter.report_tooltip,Einzeilige Zusammenfassung zum Einfügen in den Chat kopieren
+meter.report_copied,Kopiert!
+
+phases.title,Bossphasen

@@ -1,0 +1,105 @@
+
+menu.file,文件
+
+panel.meter_1,计量表 1
+panel.meter_2,计量表 2
+panel.meter_3,计量表 3
+
+filter.pets,宠物
+
+meter.damage_done,造成的损害
+meter.healing_done,治愈
+meter.damage_taken,造成的损失
+meter.cumulative,累计
+meter.full_encounter,全面邂逅
+meter.melee,近战
+meter.blacklist,黑名单
+meter.tab.damage,损坏
+meter.tab.healing,治疗
+meter.tab.taken,已采取
+meter.tab.taken_by,由
+meter.tab.dispels,驱散
+meter.tab.interrupts,中断
+meter.select_target,选择目标
+meter.damage_to,损坏
+meter.dispel_count,驱散
+meter.interrupt_count,中断
+
+status.no_combat_data,无战斗数据
+status.no_dispel_data,无驱散数据
+status.no_interrupt_data,无中断数据
+status.no_damage_data,无损坏数据
+status.no_healing_data,无愈合数据
+status.no_damage_taken_data,所选过滤器无损坏数据
+status.no_damage_to_target,该目标无损坏记录
+
+format.total_dps,总计：[[PH0］  | DPS：%s
+format.total_hps,总计：[[PH0］  | HPS：%s
+format.spell_id,法术 [[PH0］
+
+btn.close,关闭
+
+breakdown.title,球员分类
+breakdown.spells,法术
+breakdown.damage_done,造成的损害
+breakdown.healing_done,治愈
+breakdown.damage_taken,造成的损失
+breakdown.group_spells,+ 群体法术
+breakdown.group_tooltip,双击标题可重命名，右击标题可删除。
+breakdown.delete_group,删除组
+breakdown.rename,重新命名
+breakdown.blacklist_spell,黑名单咒语
+breakdown.unblacklist_spell,解除黑名单咒语
+breakdown.blacklisted_spells_title,黑名单法术
+breakdown.dragging_melee,拖拽：近战
+breakdown.dragging_spell,拖拽：法术[[PH0］
+breakdown.click_to_see,点击咒语查看详情
+breakdown.average,平均值：[PH0
+breakdown.min,最小：%s最小值
+breakdown.max,最大值：%s
+breakdown.normal_hits,正常点击
+breakdown.critical_hits,关键一击
+breakdown.targets,目标
+breakdown.pets_guardians,宠物与监护人
+breakdown.no_data_graph,图表中没有 %s 数据
+breakdown.reset_selection,重置选择
+breakdown.drag_to_select_hint,(拖动图表选择时间范围）
+breakdown.select_time_hint,在图表上拖动，选择要分析的时间范围
+breakdown.selection_info,已选择：%u：[[PH1］ - %u：%02u（%u：%02u持续时间）
+breakdown.hover_tooltip,时间：%u:%02u（单击并拖动以选择范围
+breakdown.blacklisted_healing,黑名单法术（从治疗报告中排除）
+breakdown.blacklisted_damage,黑名单法术（从伤害报告中排除）
+breakdown.restore,恢复
+breakdown.more_targets,... 和 %zu 更多目标
+
+breakdown.raw_tooltip,减伤前的伤害/治疗
+breakdown.raw_tooltip_crit1,对于暴击，我们会估算原始伤害
+breakdown.raw_tooltip_crit2,按 200% 暴击倍率计算。
+format.effective_total_overheal,有效: %s  |  总计: %s (%.1f%% 过量治疗)
+format.total_persec,总计: %s  |  %s: %s
+format.hits_crits,命中: %u (暴击: %u)
+meter.click_hint,左键选择，右键展开
+
+empty.select_encounter_hint,选择一场战斗或等待战斗开始
+empty.scrub_hint,此时间段内还没有记录
+
+death_recap.title,死亡分析
+death_recap.count_fmt,%zu 次死亡
+
+mobweight.title,怪物权重
+mobweight.enabled,启用怪物权重
+mobweight.explainer,对已设权重怪物造成的伤害在统计中仅按该比例计入
+mobweight.active_hint,怪物权重已生效
+mobweight.reset_all,重置所有权重
+mobweight.not_in_encounter,本场战斗中不存在的已保存权重
+mobweight.refresh,刷新
+mobweight.hits_fmt,%zu 次命中
+
+context_menu.set_phase_trigger,从此处开始新阶段
+context_menu.remove_phase_trigger,移除阶段触发
+meter.phase_all,全部阶段
+meter.report,战报
+meter.report_tooltip,复制单行摘要以粘贴到聊天框
+meter.report_copied,已复制！
+
+phases.title,首领阶段
