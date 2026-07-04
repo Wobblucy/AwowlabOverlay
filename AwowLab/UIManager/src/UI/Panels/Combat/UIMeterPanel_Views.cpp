@@ -1708,18 +1708,17 @@ static void renderEnemyView(
 
         ImGui::SetCursorPos(cursorPos);
         (void)iconLoader;
-        // Details-style click: seed this enemy as the DamageTakenBy
-        // target and jump to that view. Only for EnemyDamage - no
-        // taken-by-healing pivot exists yet, so EnemyHealing rows are
-        // not clickable.
+        // Click an enemy to open its own damage breakdown - the spells
+        // that enemy used against the raid - rather than swapping to the
+        // "who damaged this enemy" view. Only for EnemyDamage; there's no
+        // enemy-healing breakdown yet, so EnemyHealing rows aren't clickable.
         bool rowClicked = ImGui::InvisibleButton("##bar",
             ImVec2(availableWidth, config.bar_height));
         if (rowClicked && self && viewType == MeterViewType::EnemyDamage) {
-            self->setSelectedTarget(stats.actor_guid);
-            self->getConfig().view_type = MeterViewType::DamageTakenBy;
+            self->requestActorBreakdown(stats.actor_guid, stats, cachedDuration_ms);
         }
         if (ImGui::IsItemHovered() && viewType == MeterViewType::EnemyDamage) {
-            ImGui::SetTooltip("Click to see who damaged %s", actorName.c_str());
+            ImGui::SetTooltip("Click for %s's damage breakdown", actorName.c_str());
         }
 
         ImGui::SetCursorPos(ImVec2(cursorPos.x,

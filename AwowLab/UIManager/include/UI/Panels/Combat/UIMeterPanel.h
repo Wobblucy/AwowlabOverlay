@@ -148,6 +148,14 @@ public:
     std::optional<ui::BreakdownRequest> getBreakdownRequest() const { return breakdownRequest_; }
     void clearBreakdownRequest() { breakdownRequest_ = std::nullopt; }
 
+    // Raise a breakdown request for a specific actor. The enemy-damage
+    // view uses this so clicking an enemy opens that enemy's own damage
+    // breakdown, the same panel a player row opens.
+    void requestActorBreakdown(const std::string& guid, const ActorCombatStats& stats,
+                               uint32_t duration_ms) {
+        breakdownRequest_ = ui::BreakdownRequest{guid, stats, duration_ms};
+    }
+
     // Access configuration
     MeterPanelConfig& getConfig() { return config_; }
     const MeterPanelConfig& getConfig() const { return config_; }
