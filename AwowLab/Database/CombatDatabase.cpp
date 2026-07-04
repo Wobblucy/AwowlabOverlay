@@ -95,23 +95,38 @@ void CombatDatabase::buildPetToOwnerMap() {
             continue;
         }
 
-        auto scanTable = [this, guid_id, guid_sv](const std::vector<CombatRecord>& records) {
+        // A Player owner may only adopt a real pet (a Pet- GUID). A boss
+        // that hits a player's pet, or a mind-controlled/possessed add,
+        // surfaces a Player owner_guid on a Creature-/Vehicle- actor; the
+        // record's owner_guid describes the source unit's owner, so an enemy
+        // creature carrying a player owner is not that player's summon.
+        // Folding it in anyway merged the enemy's whole damage-done into the
+        // player - which is why a pet class saw damage it took show up as
+        // damage done. Guardians/totems on the enemy side use Creature-/
+        // Vehicle- and keep merging into their (non-player) owner.
+        const bool actorIsRealPet = guid_sv.starts_with("Pet-");
+
+        auto scanTable = [this, guid_id, guid_sv, actorIsRealPet](const std::vector<CombatRecord>& records) {
             for (const auto& record : records) {
-                // A valid owner_guid means this actor is someone's summon.
-                // owner_guid "0000000000000000" means no owner (independent creature).
                 std::string_view owner_sv = guidInterner().lookup(record.owner_guid_id);
-                if (!owner_sv.empty() &&
-                    owner_sv != "0000000000000000" &&
-                    record.owner_guid_id != guid_id) {  // guard against self-ownership
-                    // Only add if not already mapped (first occurrence wins)
-                    if (petToOwnerMap_.find(guid_id) == petToOwnerMap_.end()) {
-                        petToOwnerMap_[guid_id] = record.owner_guid_id;
-#ifndef NDEBUG
-                        std::cout << "[PET->OWNER] " << guid_sv << " -> " << owner_sv << std::endl;
-#endif
-                    }
-                    break;  // Only need one record to establish the relationship
+                if (owner_sv.empty() ||
+                    owner_sv == "0000000000000000" ||
+                    record.owner_guid_id == guid_id) {  // self-ownership
+                    continue;
                 }
+
+                // Reject a player owner on anything that isn't a real Pet-.
+                if (owner_sv.starts_with("Player-") && !actorIsRealPet) {
+                    continue;
+                }
+
+                if (petToOwnerMap_.find(guid_id) == petToOwnerMap_.end()) {
+                    petToOwnerMap_[guid_id] = record.owner_guid_id;
+#ifndef NDEBUG
+                    std::cout << "[PET->OWNER] " << guid_sv << " -> " << owner_sv << std::endl;
+#endif
+                }
+                break;  // one record establishes the relationship
             }
         };
 
