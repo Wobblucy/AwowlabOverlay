@@ -13,6 +13,7 @@ meter.damage_taken,받은 피해
 meter.cumulative,누적
 meter.full_encounter,전체 만남
 meter.melee,근접
+meter.environment,환경
 meter.blacklist,블랙리스트
 meter.tab.damage,피해
 meter.tab.healing,힐링

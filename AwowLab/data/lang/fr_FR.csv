@@ -13,6 +13,7 @@ meter.damage_taken,Dommages subis
 meter.cumulative,Cumulatif
 meter.full_encounter,Rencontre totale
 meter.melee,Mêlée
+meter.environment,Environnement
 meter.blacklist,Liste noire
 meter.tab.damage,Dommages
 meter.tab.healing,Guérison

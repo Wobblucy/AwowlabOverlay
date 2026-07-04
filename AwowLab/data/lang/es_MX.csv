@@ -13,6 +13,7 @@ meter.damage_taken,Daños sufridos
 meter.cumulative,Acumulado
 meter.full_encounter,Encuentro completo
 meter.melee,Melee
+meter.environment,Entorno
 meter.blacklist,Lista negra
 meter.tab.damage,Daños
 meter.tab.healing,Curación

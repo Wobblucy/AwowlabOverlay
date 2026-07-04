@@ -13,6 +13,7 @@ meter.damage_taken,受到的損害
 meter.cumulative,累計
 meter.full_encounter,完整邂逅
 meter.melee,混戰
+meter.environment,環境
 meter.blacklist,黑名單
 meter.tab.damage,損壞
 meter.tab.healing,癒合

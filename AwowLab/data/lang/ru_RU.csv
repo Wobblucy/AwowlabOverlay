@@ -13,6 +13,7 @@ meter.damage_taken,Нанесенный урон
 meter.cumulative,Кумулятивный
 meter.full_encounter,Полная встреча
 meter.melee,Melee
+meter.environment,Окружение
 meter.blacklist,Черный список
 meter.tab.damage,Урон
 meter.tab.healing,Исцеление

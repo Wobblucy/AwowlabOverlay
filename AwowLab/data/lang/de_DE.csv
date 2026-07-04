@@ -13,6 +13,7 @@ meter.damage_taken,Genommener Schaden
 meter.cumulative,Kumulativ
 meter.full_encounter,Vollständige Begegnung
 meter.melee,Nahkampf
+meter.environment,Umgebung
 meter.blacklist,Schwarze Liste
 meter.tab.damage,Schaden
 meter.tab.healing,Heilung

@@ -461,6 +461,7 @@ std::vector<ActorCombatStats> CombatDatabase::getRankedByFriendlyFire(
 // Used by getRankedByEnemyDamage / getRankedByEnemyHealing.
 static std::vector<ActorCombatStats> rankHostileSources(
     const ActorMap* actorMap,
+    const std::unordered_map<StringInterner::Id, StringInterner::Id>& petToOwnerMap,
     int32_t start_time_ms,
     int32_t end_time_ms,
     int32_t min_ts,
@@ -482,6 +483,16 @@ static std::vector<ActorCombatStats> rankHostileSources(
             continue;
         }
 
+        // Fold enemy summons (adds' totems, boss-spawned pets) into the
+        // actor that owns them so the Enemy Damage list shows one row per
+        // real combatant. This mirrors getRankedByActorWithPets, so the
+        // guid on each row matches the guid the breakdown panel opens.
+        StringInterner::Id effective_source = source_guid;
+        auto ownerIt = petToOwnerMap.find(source_guid);
+        if (ownerIt != petToOwnerMap.end() && ownerIt->second != StringInterner::INVALID) {
+            effective_source = ownerIt->second;
+        }
+
         const auto* combat_table = (type == CombatMetricType::HealingDone)
             ? &actor_table.healing_done_table
             : &actor_table.damage_dealt_table;
@@ -491,9 +502,9 @@ static std::vector<ActorCombatStats> rankHostileSources(
             if (record.timestamp_ms < start_time_ms || record.timestamp_ms > end_time_ms) {
                 continue;
             }
-            auto& stats = sourceStats[source_guid];
+            auto& stats = sourceStats[effective_source];
             if (stats.actor_guid.empty()) {
-                stats.actor_guid = std::string(source_guid_sv);
+                stats.actor_guid = std::string(guidInterner().lookup(effective_source));
             }
             stats.total_amount += record.amount;
             stats.effective_amount += record.effective_amount;
@@ -522,7 +533,7 @@ std::vector<ActorCombatStats> CombatDatabase::getRankedByEnemyDamage(
     int32_t end_time_ms,
     size_t max_results
 ) const {
-    return rankHostileSources(actorMap_, start_time_ms, end_time_ms,
+    return rankHostileSources(actorMap_, petToOwnerMap_, start_time_ms, end_time_ms,
                               min_timestamp_, max_timestamp_,
                               max_results, CombatMetricType::DamageDealt);
 }
@@ -532,7 +543,7 @@ std::vector<ActorCombatStats> CombatDatabase::getRankedByEnemyHealing(
     int32_t end_time_ms,
     size_t max_results
 ) const {
-    return rankHostileSources(actorMap_, start_time_ms, end_time_ms,
+    return rankHostileSources(actorMap_, petToOwnerMap_, start_time_ms, end_time_ms,
                               min_timestamp_, max_timestamp_,
                               max_results, CombatMetricType::HealingDone);
 }

@@ -328,6 +328,11 @@ void UIMeterPanel::renderDamageTakenByView(
                 if (it != combatGuidToName->end()) name = it->second;
             }
             if (name.empty()) name = e.actor_guid.substr(0, 16);
+            // Environmental damage (falling, lava, ...) logs as "nil" /
+            // null GUID; show a friendly localized label instead.
+            if (ui::isEnvironmentSource(e.actor_guid, name)) {
+                name = ui::environmentName();
+            }
             if (ui::utf8CharCount(name) > 20) {
                 name = ui::utf8Truncate(name, 18) + "..";
             }
@@ -1663,6 +1668,11 @@ static void renderEnemyView(
         }
         if (actorName.empty()) {
             actorName = stats.actor_guid.substr(0, 12);
+        }
+        // Environmental damage (falling, lava, ...) logs as "nil" / null
+        // GUID; show a friendly localized label instead.
+        if (ui::isEnvironmentSource(stats.actor_guid, actorName)) {
+            actorName = ui::environmentName();
         }
         if (ui::utf8CharCount(actorName) > 16) {
             actorName = ui::utf8Truncate(actorName, 14) + "..";

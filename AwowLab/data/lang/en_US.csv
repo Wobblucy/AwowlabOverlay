@@ -13,6 +13,7 @@ meter.damage_taken,Damage Taken
 meter.cumulative,Cumulative
 meter.full_encounter,Full Encounter
 meter.melee,Melee
+meter.environment,Environment
 meter.blacklist,Blacklist
 meter.tab.damage,Damage
 meter.tab.healing,Healing

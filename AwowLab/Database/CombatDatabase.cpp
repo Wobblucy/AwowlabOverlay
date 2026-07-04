@@ -81,8 +81,12 @@ void CombatDatabase::refreshTargetWeights() const {
 void CombatDatabase::buildPetToOwnerMap() {
     if (!actorMap_) return;
 
-    // Scan all combat records to find owner_guid relationships
-    // Only map pets/guardians to Player owners (not to NPC/Creature owners)
+    // Scan all combat records to find owner_guid relationships.
+    // Maps pets/guardians/totems to whoever owns them - a player OR an
+    // enemy. Enemy-side ownership matters so the Enemy Damage meter folds
+    // a boss's summons into the boss row (matching how the player meter
+    // folds a hunter's pet into the hunter), and so clicking that enemy
+    // opens a breakdown that already includes the summon's spells.
     for (const auto& [guid_id, table] : *actorMap_) {
         // Skip Players - they can't be pets/guardians
         // Only Pet-, Creature-, and Vehicle- GUIDs can have owners
@@ -93,13 +97,12 @@ void CombatDatabase::buildPetToOwnerMap() {
 
         auto scanTable = [this, guid_id, guid_sv](const std::vector<CombatRecord>& records) {
             for (const auto& record : records) {
-                // If this record has a valid owner_guid that's a Player, map this actor to that owner
-                // owner_guid "0000000000000000" means no owner (independent creature)
-                // We only want to attribute damage to Player owners, not NPC owners
+                // A valid owner_guid means this actor is someone's summon.
+                // owner_guid "0000000000000000" means no owner (independent creature).
                 std::string_view owner_sv = guidInterner().lookup(record.owner_guid_id);
                 if (!owner_sv.empty() &&
                     owner_sv != "0000000000000000" &&
-                    owner_sv.starts_with("Player-")) {
+                    record.owner_guid_id != guid_id) {  // guard against self-ownership
                     // Only add if not already mapped (first occurrence wins)
                     if (petToOwnerMap_.find(guid_id) == petToOwnerMap_.end()) {
                         petToOwnerMap_[guid_id] = record.owner_guid_id;

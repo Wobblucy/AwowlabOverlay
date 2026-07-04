@@ -8,8 +8,33 @@
 #include <memory>
 #include "../Color/ActorColorGenerator.h"
 #include "../../Database/CombatDatabase.h"
+#include "Core/LocalizationManager.h"
 
 namespace ui {
+
+// ============================================================================
+// Environment (world) source detection
+// ============================================================================
+
+// WoW attributes environmental damage - falling, lava, fatigue, drowning,
+// fire - to a synthetic source with the null GUID and the literal name
+// "nil". Detect either form so meters can show a friendly "Environment"
+// label instead of a raw "nil" row.
+inline bool isEnvironmentSource(const std::string& guid, const std::string& resolvedName) {
+    if (resolvedName == "nil") {
+        return true;
+    }
+    // Null GUID: all zeros, optionally with a "Creature-0-0-0-0-0-0-..." shape.
+    if (guid == "0000000000000000") {
+        return true;
+    }
+    return false;
+}
+
+// Localized display label for the environmental damage source.
+inline std::string environmentName() {
+    return std::string(L("meter.environment"));
+}
 
 // ============================================================================
 // UTF-8 String Utilities
@@ -151,6 +176,13 @@ inline std::string resolveActorName(
         if (combatIt != combatGuidToName->end()) {
             displayName = combatIt->second;
         }
+    }
+
+    // Environmental damage (falling, lava, fatigue, ...) resolves to the
+    // literal "nil" or carries the null GUID. Show a friendly localized
+    // label rather than the raw log token.
+    if (isEnvironmentSource(guid, displayName)) {
+        return environmentName();
     }
 
     // Final fallback: use last part of GUID
