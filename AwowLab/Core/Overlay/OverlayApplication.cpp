@@ -1,4 +1,5 @@
 #include "OverlayApplication.h"
+#include "ClientLocale.h"
 #include "Core/UnifiedSettings.h"
 #include "Core/MobWeightSettings.h"
 #include "Core/LocalizationManager.h"
@@ -154,14 +155,22 @@ bool OverlayApplication::initWindow() {
     window_->setAlwaysOnTop(true);
     window_->setOpacity(0.85f);
 
+    // Hand the bundled font (if any) to the Vulkan context before it
+    // builds the ImGui atlas
+    if (uiFontData_ && uiFontSize_ > 0) {
+        vulkan_->setUiFont(uiFontData_, uiFontSize_);
+    }
+
     // Initialize Vulkan rendering context
     if (!vulkan_->init(window_->getWindow())) {
         std::cerr << "Failed to initialize Vulkan context\n";
         return false;
     }
 
-    // Scale up UI text/elements by 50%
-    ImGui::GetIO().FontGlobalScale = 1.5f;
+    // Scale up UI text/elements by 50%. The bundled font is baked at the
+    // scaled size already (crisper than scaling a 13 px bitmap); the
+    // built-in fallback font only exists at 13 px, so scale it at runtime.
+    ImGui::GetIO().FontGlobalScale = vulkan_->hasCustomFont() ? 1.0f : 1.5f;
 
     return true;
 }
@@ -194,6 +203,10 @@ bool OverlayApplication::initLogManager() {
         return false;
 #endif
     }
+
+    // The logs folder is settled now - if we're following the WoW client
+    // language, this is the moment we can find its Config.wtf
+    applyClientLanguage();
 
     // Wire up callbacks
     logManager_->setOnDataUpdate([this]() {
@@ -954,6 +967,31 @@ void OverlayApplication::renderUI() {
     }
 
     ImGui::End();
+}
+
+void OverlayApplication::applyClientLanguage() {
+    if (!followClientLanguage_) {
+        return;
+    }
+
+    // A language picked in the main app wins over detection. The saved
+    // value defaults to en_US and is written even for users who never
+    // touched the picker, so only a non-English saved locale can be
+    // treated as an actual choice.
+    const auto& settings = SettingsCache::instance().get();
+    auto saved = LocalizationManager::parseLocale(settings.locale);
+    if (saved && *saved != Locale::en_US) {
+        return;
+    }
+
+    // Detected, never saved: detection stays live, so switching the WoW
+    // client language carries over on the overlay's next launch. Safe to
+    // do after startup too - only the strings swap; the font atlas
+    // already covers every language we can display.
+    if (auto detected = awow::detectClientLocale(logsFolder_)) {
+        LocalizationManager::instance().setLocale(
+            awow::overlayDisplayableLocale(*detected));
+    }
 }
 
 void OverlayApplication::loadSettings() {

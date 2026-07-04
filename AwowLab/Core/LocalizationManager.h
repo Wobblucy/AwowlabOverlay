@@ -5,6 +5,8 @@
 #include <unordered_map>
 #include <array>
 #include <optional>
+#include <span>
+#include <iosfwd>
 #include <cstdint>
 
 /**
@@ -59,6 +61,27 @@ public:
      * @return True if at least en_US.csv loaded successfully.
      */
     bool loadTranslations(const std::string& langDir);
+
+    /**
+     * One locale's translations held in memory: the locale code
+     * ("en_US") and the full CSV file contents.
+     */
+    struct LocaleData {
+        std::string_view code;
+        std::string_view csv;
+    };
+
+    /**
+     * Load translations from in-memory CSV data instead of files.
+     * Used by the standalone overlay, which carries its language files
+     * inside the executable. Entries with unknown locale codes are
+     * skipped. Uses the same CSV parsing as loadTranslations().
+     *
+     * @param locales One entry per locale; en_US must be present as the
+     *                fallback locale.
+     * @return True if the en_US entry was found and loaded.
+     */
+    bool loadTranslationsFromMemory(std::span<const LocaleData> locales);
 
     /**
      * Reload translations for current locale.
@@ -142,6 +165,12 @@ private:
 
     // Load a single locale CSV file
     bool loadLocaleFile(const std::string& filepath, Locale locale);
+
+    // Load a single locale's CSV data from memory
+    bool loadLocaleFromMemory(std::string_view csvText, Locale locale);
+
+    // Shared CSV parsing behind both the file and memory loaders
+    bool loadLocaleFromStream(std::istream& in, Locale locale);
 
     // Parse a single CSV line, handling quoted strings
     std::pair<std::string, std::string> parseCSVLine(const std::string& line) const;

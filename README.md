@@ -12,15 +12,19 @@ The overlay is the standalone companion to [AwowLab](https://github.com/Wobblucy
 - **Death recap** — what killed you, hit by hit
 - **Player breakdowns** — per-spell damage and healing details, avoidable damage taken
 - **Mob weighting** — down-weight unimportant adds so the meter reflects actual progress, not padding
-- **9 languages** — English, German, French, Spanish, Portuguese, Russian, Korean, Chinese (Simplified and Traditional)
+- **Speaks your language** — automatically matches your WoW client language
 
 ## Getting Started
 
 1. Enable advanced combat logging in WoW: `System → Network → Advanced Combat Logging`
 2. Start logging with `/combatlog` (or use an addon that toggles it automatically)
-3. Download the latest release and run `AwowLabOverlay.exe` — it finds your Logs folder automatically
+3. Download the latest release and run `AwowLabOverlay.exe` — a single self-contained file, nothing to install; it finds your Logs folder automatically
 
 The overlay stays on top of the game window. Drag it wherever you like; position and settings persist between sessions.
+
+## Languages
+
+The overlay reads your WoW client's language setting and comes up in the same language — no configuration needed. English, German, French, Spanish, Portuguese, and Russian are supported. Korean and Chinese clients currently see English; those scripts need fonts the overlay doesn't bundle yet.
 
 ## Requirements
 
@@ -49,7 +53,7 @@ cmake --preset x64-release
 cmake --build out/build/x64-release --config Release
 ```
 
-The executable and its `data` folder land in `out/build/x64-release/AwowLab/Release`.
+The executable lands in `out/build/x64-release/AwowLab/Release` — a single self-contained file with the language data and UI font compiled in.
 
 ## Contributing
 
@@ -58,3 +62,5 @@ Issues and pull requests are welcome. Development happens in a private monorepo 
 ## License
 
 [AGPL-3.0](LICENSE)
+
+The bundled Noto Sans font is licensed under the [SIL Open Font License 1.1](AwowLab/data/fonts/OFL.txt).

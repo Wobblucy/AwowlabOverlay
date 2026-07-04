@@ -42,6 +42,20 @@ public:
     // Set the WoW Logs folder to monitor
     void setLogsFolder(const std::filesystem::path& folder);
 
+    // Standalone overlay: supply the font compiled into the executable.
+    // Call before run(); the bytes must stay alive for the app's lifetime.
+    // Without it (main app overlay mode) ImGui's built-in font is used.
+    void setUiFont(const unsigned char* data, size_t size) {
+        uiFontData_ = data;
+        uiFontSize_ = size;
+    }
+
+    // Standalone overlay: match the WoW client's language, read from the
+    // client's Config.wtf next to the Logs folder, unless the user picked
+    // a language in the main app. Off by default so the main app's
+    // overlay mode leaves the shared localization state alone.
+    void setFollowClientLanguage(bool follow) { followClientLanguage_ = follow; }
+
     // Run the overlay application (main loop)
     // Returns exit code
     int run();
@@ -66,6 +80,17 @@ private:
     // State
     std::filesystem::path logsFolder_;
     StatsViewMode viewMode_ = StatsViewMode::CurrentPull;
+
+    // Standalone-only extras (see the setters above)
+    const unsigned char* uiFontData_ = nullptr;
+    size_t uiFontSize_ = 0;
+    bool followClientLanguage_ = false;
+
+    // Switch the UI language to the WoW client's, when enabled and the
+    // user hasn't picked a language in the main app. Runs once the logs
+    // folder is known; never persisted, so a client language change is
+    // picked up on the next launch.
+    void applyClientLanguage();
 
     // Segment selection (Details-style indexing)
     // SIZE_MAX = Current (live), SIZE_MAX-1 = Overall, 0+ = historical pull index

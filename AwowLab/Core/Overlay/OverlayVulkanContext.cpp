@@ -566,6 +566,28 @@ bool OverlayVulkanContext::initImGui(GLFWwindow* window) {
     // Setup style
     ImGui::StyleColorsDark();
 
+    // Build the atlas from the supplied font, if any. The standalone
+    // overlay passes Noto Sans so translated strings (accented Latin,
+    // Cyrillic) render instead of placeholder boxes - the built-in ImGui
+    // font is ASCII only. Baked at 19.5 px = the 13 px default times the
+    // overlay's 1.5x UI scale, so the layout matches the old look while
+    // the glyphs stay sharp (OverlayApplication drops FontGlobalScale to
+    // 1.0 when a custom font is active).
+    if (hasCustomFont()) {
+        static const ImWchar kGlyphRanges[] = {
+            0x0020, 0x017F,  // Basic Latin, Latin-1 Supplement, Latin Extended-A
+            0x0400, 0x052F,  // Cyrillic, Cyrillic Supplement
+            0x2010, 0x205E,  // General punctuation (dashes, quotes, ellipsis)
+            0,
+        };
+        ImFontConfig fontConfig;
+        fontConfig.FontDataOwnedByAtlas = false;  // bytes live in the executable image
+        io.Fonts->AddFontFromMemoryTTF(
+            const_cast<unsigned char*>(fontData_),
+            static_cast<int>(fontDataSize_),
+            19.5f, &fontConfig, kGlyphRanges);
+    }
+
     // Setup Platform/Renderer backends
     ImGui_ImplGlfw_InitForVulkan(window, true);
 

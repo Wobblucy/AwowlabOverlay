@@ -12,6 +12,17 @@ public:
     OverlayVulkanContext() = default;
     ~OverlayVulkanContext();
 
+    // Supply a TTF font to build the ImGui atlas from. Must be called
+    // before init(); the bytes must outlive this context (the standalone
+    // overlay passes data compiled into the executable). When no font is
+    // set, ImGui's built-in font is used - that keeps the main app's
+    // overlay mode exactly as it was.
+    void setUiFont(const unsigned char* data, size_t size) {
+        fontData_ = data;
+        fontDataSize_ = size;
+    }
+    bool hasCustomFont() const { return fontData_ != nullptr && fontDataSize_ > 0; }
+
     // Initialize all Vulkan resources
     bool init(GLFWwindow* window);
 
@@ -107,6 +118,10 @@ private:
     VkDescriptorPool imguiDescriptorPool_ = VK_NULL_HANDLE;
     struct ImGuiContext* savedMainContext_ = nullptr;  // Main app's context to restore on cleanup
     struct ImGuiContext* overlayContext_ = nullptr;    // Our overlay's context
+
+    // Optional UI font (set before init, bytes owned by the caller)
+    const unsigned char* fontData_ = nullptr;
+    size_t fontDataSize_ = 0;
 
     // State
     GLFWwindow* window_ = nullptr;

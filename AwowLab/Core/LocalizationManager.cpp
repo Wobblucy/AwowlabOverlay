@@ -102,12 +102,55 @@ bool LocalizationManager::reloadCurrentLocale() {
     return true;
 }
 
+bool LocalizationManager::loadTranslationsFromMemory(std::span<const LocaleData> locales) {
+    // Memory loading replaces the disk directory entirely; clearing
+    // langDir_ keeps setLocale()/reloadCurrentLocale() off the filesystem.
+    langDir_.clear();
+    translations_.clear();
+    loaded_ = false;
+
+    // en_US goes in first so every key carries its fallback text
+    const LocaleData* fallback = nullptr;
+    for (const auto& entry : locales) {
+        if (entry.code == "en_US") {
+            fallback = &entry;
+            break;
+        }
+    }
+    if (!fallback || !loadLocaleFromMemory(fallback->csv, Locale::en_US)) {
+        return false;
+    }
+
+    for (const auto& entry : locales) {
+        auto locale = parseLocale(entry.code);
+        if (!locale || *locale == Locale::en_US) {
+            continue;
+        }
+        loadLocaleFromMemory(entry.csv, *locale);
+    }
+
+    loaded_ = true;
+#ifndef NDEBUG
+    std::cout << "LocalizationManager: Loaded " << translations_.size()
+              << " translation keys from memory\n";
+#endif
+    return true;
+}
+
 bool LocalizationManager::loadLocaleFile(const std::string& filepath, Locale locale) {
     std::ifstream file(filepath, std::ios::binary);
     if (!file.is_open()) {
         return false;
     }
+    return loadLocaleFromStream(file, locale);
+}
 
+bool LocalizationManager::loadLocaleFromMemory(std::string_view csvText, Locale locale) {
+    std::istringstream in{std::string(csvText)};
+    return loadLocaleFromStream(in, locale);
+}
+
+bool LocalizationManager::loadLocaleFromStream(std::istream& file, Locale locale) {
     std::string line;
     int lineNum = 0;
     size_t localeIdx = static_cast<size_t>(locale);

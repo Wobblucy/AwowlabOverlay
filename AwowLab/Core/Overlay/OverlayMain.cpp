@@ -4,6 +4,8 @@
 // then OverlayApplication.
 
 #include "OverlayApplication.h"
+#include "ClientLocale.h"
+#include "EmbeddedOverlayAssets.h"
 #include "Core/ErrorLogger.h"
 #include "Core/LocalizationManager.h"
 #include "Core/UnifiedSettings.h"
@@ -12,6 +14,7 @@
 #include <filesystem>
 #include <iostream>
 #include <string>
+#include <vector>
 
 #if defined(_WIN32)
 #include <windows.h>
@@ -20,9 +23,9 @@
 
 namespace {
 
-// Set working directory to the executable directory so data/lang and
-// the settings file resolve regardless of how the overlay was launched
-// (shortcut, task scheduler, etc.)
+// Set working directory to the executable directory so the settings file
+// resolves regardless of how the overlay was launched (shortcut, task
+// scheduler, etc.)
 void setWorkingDirectoryToExe() {
 #ifdef _WIN32
     char path[MAX_PATH];
@@ -48,18 +51,31 @@ void initializeRuntime() {
     // Initialize error logger (log file goes next to executable)
     ErrorLogger::instance().initialize(awow::getExecutableDirectory());
 
-    // Initialize localization (the overlay UI uses L() strings)
+    // Initialize localization (the overlay UI uses L() strings). The
+    // language files are compiled into the executable, so the overlay
+    // runs as a single file with no data folder next to it.
     auto& locMgr = LocalizationManager::instance();
-    if (!locMgr.loadTranslations("data/lang")) {
-        AWOW_LOG_WARNING("LOCALE", "Localization files not found in data/lang - using English keys as fallback");
+    std::vector<LocalizationManager::LocaleData> locales;
+    locales.reserve(awow::embedded::kLocaleCsvCount);
+    for (size_t i = 0; i < awow::embedded::kLocaleCsvCount; ++i) {
+        const auto& csv = awow::embedded::kLocaleCsvs[i];
+        locales.push_back({
+            csv.localeCode,
+            std::string_view(reinterpret_cast<const char*>(csv.data), csv.size)});
+    }
+    if (!locMgr.loadTranslationsFromMemory(locales)) {
+        AWOW_LOG_WARNING("LOCALE", "Built-in language data failed to load - using English keys as fallback");
     }
 
-    // Apply saved locale from settings
+    // Apply the locale saved in the shared settings, clamped to what the
+    // built-in font can render. When it's the en_US default, the overlay
+    // switches to the WoW client's language once the logs folder is
+    // known (see OverlayApplication::applyClientLanguage).
     const auto& settings = SettingsCache::instance().get();
     if (!settings.locale.empty()) {
         auto savedLocale = LocalizationManager::parseLocale(settings.locale);
         if (savedLocale) {
-            locMgr.setLocale(*savedLocale);
+            locMgr.setLocale(awow::overlayDisplayableLocale(*savedLocale));
         }
     }
 }
@@ -70,6 +86,8 @@ void initializeRuntime() {
 int runOverlay(const std::filesystem::path& logsFolder) {
     try {
         OverlayApplication overlay;
+        overlay.setUiFont(awow::embedded::kUiFont, awow::embedded::kUiFontSize);
+        overlay.setFollowClientLanguage(true);
         if (!logsFolder.empty()) {
             overlay.setLogsFolder(logsFolder);
         }

@@ -11,6 +11,24 @@ add_subdirectory("Parser")
 add_subdirectory("Database")
 add_subdirectory("UIManager")
 
+# The overlay ships as one self-contained executable: the language CSVs and
+# the UI font are turned into byte arrays at build time and compiled in
+# (declarations in Core/Overlay/EmbeddedOverlayAssets.h). The lang CSVs in
+# this repository are already filtered to the keys the overlay uses.
+set(OVERLAY_EMBED_CPP "${CMAKE_CURRENT_BINARY_DIR}/overlay_embedded/EmbeddedOverlayAssets.cpp")
+file(GLOB OVERLAY_LANG_CSVS "${CMAKE_CURRENT_SOURCE_DIR}/data/lang/*.csv")
+add_custom_command(
+    OUTPUT "${OVERLAY_EMBED_CPP}"
+    COMMAND ${CMAKE_COMMAND}
+        "-DDATA_DIR=${CMAKE_CURRENT_SOURCE_DIR}/data"
+        "-DOUTPUT_CPP=${OVERLAY_EMBED_CPP}"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/embed_overlay_assets.cmake"
+    DEPENDS ${OVERLAY_LANG_CSVS}
+        "${CMAKE_CURRENT_SOURCE_DIR}/data/fonts/NotoSans-Regular.ttf"
+        "${CMAKE_CURRENT_SOURCE_DIR}/cmake/embed_overlay_assets.cmake"
+    COMMENT "Embedding language files and UI font into AwowLabOverlay"
+)
+
 add_executable(AwowLabOverlay WIN32
     Core/ErrorLogger.h
     Core/LocalizationManager.cpp
@@ -19,6 +37,9 @@ add_executable(AwowLabOverlay WIN32
     Core/MobWeightSettings.h
     Core/Overlay/ActiveLogWatcher.cpp
     Core/Overlay/ActiveLogWatcher.h
+    Core/Overlay/ClientLocale.cpp
+    Core/Overlay/ClientLocale.h
+    Core/Overlay/EmbeddedOverlayAssets.h
     Core/Overlay/LiveCombatStats.cpp
     Core/Overlay/LiveCombatStats.h
     Core/Overlay/LiveLogManager.cpp
@@ -44,6 +65,7 @@ add_executable(AwowLabOverlay WIN32
     Core/Utils/ColorUtils.h
     Core/Utils/ExecutablePath.cpp
     Core/Utils/ExecutablePath.h
+    "${OVERLAY_EMBED_CPP}"
 )
 
 # Precompiled header (STL, Windows, Vulkan, ImGui compiled once)
@@ -71,13 +93,5 @@ target_link_libraries(AwowLabOverlay PRIVATE
     ZLIB::ZLIB
 )
 
-# Copy the data folder (lang CSVs) next to the overlay
-if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/data")
-    add_custom_command(TARGET AwowLabOverlay POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:AwowLabOverlay>/data"
-        COMMAND ${CMAKE_COMMAND} -E copy_directory
-            "${CMAKE_CURRENT_SOURCE_DIR}/data"
-            "$<TARGET_FILE_DIR:AwowLabOverlay>/data"
-        COMMENT "Copying data folder to AwowLabOverlay executable directory"
-    )
-endif()
+# No data copy: everything the overlay needs at runtime is compiled into
+# the executable by the embed step above.
