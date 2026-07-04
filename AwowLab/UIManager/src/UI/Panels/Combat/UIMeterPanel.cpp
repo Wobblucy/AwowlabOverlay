@@ -75,7 +75,7 @@ bool UIMeterPanel::render(
 
     // Remind the user when mob weighting is shaping the numbers
     if (combatDb && combatDb->hasActiveTargetWeights()) {
-        ImGui::TextDisabled("%s", L("mobweight.active_hint"));
+        ImGui::TextColored(awlui::theme::Accent, "%s", L("mobweight.active_hint"));
     }
     ImGui::Separator();
 
@@ -158,7 +158,7 @@ void UIMeterPanel::renderEmbedded(
 
     // Remind the user when mob weighting is shaping the numbers
     if (combatDb && combatDb->hasActiveTargetWeights()) {
-        ImGui::TextDisabled("%s", L("mobweight.active_hint"));
+        ImGui::TextColored(awlui::theme::Accent, "%s", L("mobweight.active_hint"));
     }
     ImGui::Separator();
 
@@ -295,7 +295,7 @@ void UIMeterPanel::renderEmbeddedContent(
         // Remind the user when mob weighting is shaping the numbers -
         // this is the path the overlay renders through
         if (combatDb && combatDb->hasActiveTargetWeights()) {
-            ImGui::TextDisabled("%s", L("mobweight.active_hint"));
+            ImGui::TextColored(awlui::theme::Accent, "%s", L("mobweight.active_hint"));
         }
         ImGui::Separator();
     }

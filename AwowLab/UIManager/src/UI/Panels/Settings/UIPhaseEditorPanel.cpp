@@ -56,8 +56,6 @@ UIPhaseEditorPanel::~UIPhaseEditorPanel() = default;
 void UIPhaseEditorPanel::render(const PhaseEditorData& data) {
     if (!visible_) return;
 
-    ImGui::SetNextWindowSize(ImVec2(560, 480), ImGuiCond_FirstUseEver);
-
     // The overlay's meter fills a borderless fullscreen window, so a fresh
     // editor can open behind it. Pull it to the front and focus it the
     // first frame it shows so it's never lost under the meter.
@@ -66,7 +64,11 @@ void UIPhaseEditorPanel::render(const PhaseEditorData& data) {
         justOpened_ = false;
     }
 
-    if (ImGui::Begin(L("phases.title"), &visible_)) {
+    // Size to content and drop the collapse triangle: the window has no
+    // fixed body, so it should just fit its rules/emotes rather than open
+    // at a padded fixed size the user then has to resize.
+    if (ImGui::Begin(L("phases.title"), &visible_,
+                     ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoCollapse)) {
         // A plain Close button in the body - the title-bar X is small and
         // easy to miss against the game behind a click-through overlay.
         if (awlui::Button(L("btn.close"), awlui::ButtonVariant::Secondary,
@@ -221,7 +223,10 @@ void UIPhaseEditorPanel::renderCastList(const PhaseEditorData& data) {
 void UIPhaseEditorPanel::renderEmoteList(const PhaseEditorData& data) {
     ImGui::Text("%s", L("phases.emotes_header"));
 
-    ImGui::BeginChild("PhaseEmoteList", ImVec2(0, 0), true);
+    // Fixed-width, capped-height scroll region. With the window set to
+    // auto-resize a (0,0) child would collapse to nothing, so give it a
+    // concrete size and let the list scroll inside it.
+    ImGui::BeginChild("PhaseEmoteList", ImVec2(520.0f, 160.0f), true);
 
     if (data.emotes.empty()) {
         ImGui::TextDisabled("%s", L("phases.no_emotes"));

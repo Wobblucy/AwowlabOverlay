@@ -517,23 +517,25 @@ void OverlayApplication::renderUI() {
     ImVec2 dragSize(ImGui::GetWindowWidth(), 16.0f);
     ImGui::InvisibleButton("##DragHandle", dragSize);
 
-    // Window position captured once when the drag begins. The move is
-    // driven by GetMouseDragDelta, which ImGui accumulates from the click
-    // point in raw mouse motion - it does not read the mouse relative to
-    // the window, so moving the window underneath the cursor can't feed
-    // back into the delta. Reading GetMousePos() each frame and moving the
-    // window by it does feed back, and the residual error compounds the
-    // longer you drag - that was the growing jitter.
+    // Drag against the absolute desktop cursor (see screenCursor). Both the
+    // window position and the cursor anchor are captured once at click; each
+    // frame the window moves by how far the desktop cursor travelled since.
+    // Because the anchor is in desktop space, moving the window doesn't shift
+    // it, so there's no feedback and no accumulating jitter.
     static int dragStartWinX = 0, dragStartWinY = 0;
+    static double dragStartCurX = 0.0, dragStartCurY = 0.0;
 
     if (ImGui::IsItemActive()) {
         if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
             window_->getPosition(dragStartWinX, dragStartWinY);
+            screenCursor(dragStartCurX, dragStartCurY);
         }
 
-        ImVec2 dragDelta = ImGui::GetMouseDragDelta(ImGuiMouseButton_Left, 0.0f);
-        window_->setPosition(dragStartWinX + static_cast<int>(dragDelta.x),
-                             dragStartWinY + static_cast<int>(dragDelta.y));
+        double curX = 0.0, curY = 0.0;
+        if (screenCursor(curX, curY)) {
+            window_->setPosition(dragStartWinX + static_cast<int>(curX - dragStartCurX),
+                                 dragStartWinY + static_cast<int>(curY - dragStartCurY));
+        }
     }
 
     // Show drag cursor hint
@@ -1033,6 +1035,7 @@ void OverlayApplication::renderUI() {
     {
         static bool draggingFromBody = false;
         static int bodyDragWinX = 0, bodyDragWinY = 0;
+        static double bodyDragCurX = 0.0, bodyDragCurY = 0.0;
 
         if (!draggingFromBody) {
             if (ImGui::IsMouseClicked(ImGuiMouseButton_Left) &&
@@ -1040,14 +1043,17 @@ void OverlayApplication::renderUI() {
                 !ImGui::IsAnyItemHovered() && !ImGui::IsAnyItemActive()) {
                 draggingFromBody = true;
                 window_->getPosition(bodyDragWinX, bodyDragWinY);
+                screenCursor(bodyDragCurX, bodyDragCurY);
             }
         } else if (ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
-            // Drag by the accumulated delta from the click point, not by the
-            // window-relative mouse position, which feeds back as the window
-            // moves (see the drag-handle note above).
-            ImVec2 dragDelta = ImGui::GetMouseDragDelta(ImGuiMouseButton_Left, 0.0f);
-            window_->setPosition(bodyDragWinX + static_cast<int>(dragDelta.x),
-                                 bodyDragWinY + static_cast<int>(dragDelta.y));
+            // Move by how far the desktop cursor travelled since the click,
+            // in absolute desktop space, so moving the window can't feed
+            // back into the delta (see the drag-handle note above).
+            double curX = 0.0, curY = 0.0;
+            if (screenCursor(curX, curY)) {
+                window_->setPosition(bodyDragWinX + static_cast<int>(curX - bodyDragCurX),
+                                     bodyDragWinY + static_cast<int>(curY - bodyDragCurY));
+            }
         } else {
             draggingFromBody = false;
         }
@@ -1079,6 +1085,23 @@ void OverlayApplication::applyClientLanguage() {
         LocalizationManager::instance().setLocale(
             awow::overlayDisplayableLocale(*detected));
     }
+}
+
+bool OverlayApplication::screenCursor(double& x, double& y) const {
+    // Absolute desktop cursor position: window origin + cursor within the
+    // client area. This is invariant while dragging - as the window moves
+    // under a still mouse, the window origin rises by exactly what the
+    // in-client cursor falls, so the sum doesn't move. Anchoring a drag to
+    // this instead of ImGui's window-relative GetMousePos (which shifts
+    // with the window and feeds back) is what stops the drag jitter.
+    if (!window_ || !window_->getWindow()) return false;
+    int winX = 0, winY = 0;
+    window_->getPosition(winX, winY);
+    double curX = 0.0, curY = 0.0;
+    glfwGetCursorPos(window_->getWindow(), &curX, &curY);
+    x = winX + curX;
+    y = winY + curY;
+    return true;
 }
 
 void OverlayApplication::syncSpecColors() {

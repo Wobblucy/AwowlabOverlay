@@ -131,6 +131,11 @@ private:
     // (and hides the phase UI) for segments without an encounter id.
     void updatePhases();
 
+    // Absolute desktop cursor position (window origin + in-client cursor).
+    // Stable while the window moves, so window dragging reads it instead of
+    // ImGui's window-relative mouse. False if there's no window yet.
+    bool screenCursor(double& x, double& y) const;
+
     // Assemble the phase editor's plain-data input from the live
     // capture for the selected boss segment.
     PhaseEditorData buildPhaseEditorData();
