@@ -3,6 +3,7 @@
 #include <vector>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <imgui.h>
 #include "Database/CombatDatabase.h"
 #include "UI/SpellGroupSettings.h"
@@ -11,12 +12,16 @@ namespace awow { class ISpellIconRenderer; }
 
 // Grouped spell display structure
 struct GroupedSpellRow {
-    enum class Type { GroupHeader, Spell };
+    enum class Type { GroupHeader, Spell, PetGroupHeader };
     Type type = Type::Spell;
     uint32_t group_id = 0;          // For headers: the group ID; for spells: parent group (0 if ungrouped)
     const SpellCombatStats* spell = nullptr;  // nullptr for headers
     int64_t group_total = 0;        // For headers: sum of all spells in group
     std::string group_name;         // For headers: the group name
+    // For auto-generated pet groups only: the NPC id (0 for a real named
+    // pet) used as the collapse key. Pet groups are not user-editable.
+    uint32_t pet_npc_id = 0;
+    std::string pet_guid;           // Representative spawn guid (real-pet collapse key when npc id is 0)
 };
 
 // Renders the spell breakdown table with grouping support
@@ -47,6 +52,15 @@ public:
     // the main-app path (the default).
     void setSpellNameFallback(const std::unordered_map<uint32_t, std::string>* fallback) {
         spellNameFallback_ = fallback;
+    }
+
+    // Resolved display names for the auto-generated pet groups, keyed by the
+    // pet's representative guid. The panel fills this in via resolveActorName
+    // before rendering (the renderer has no guid->name map of its own, and
+    // must stay icon/name-lookup free so the overlay can use it). Pass an
+    // empty map to fall back to the raw guid.
+    void setPetGroupNames(const std::unordered_map<std::string, std::string>* names) {
+        petGroupNames_ = names;
     }
 
     // Build grouped spell rows from current actor stats
@@ -87,12 +101,28 @@ private:
     // Optional overlay-mode name lookup, set by setSpellNameFallback.
     const std::unordered_map<uint32_t, std::string>* spellNameFallback_ = nullptr;
 
+    // Resolved pet-group display names (guid -> name), set by setPetGroupNames.
+    const std::unordered_map<std::string, std::string>* petGroupNames_ = nullptr;
+
+    // Collapsed pet groups, keyed the same way the aggregation groups them:
+    // "n<npcId>" for summons, "g<guid>" for a real named pet. Tracked on the
+    // renderer (not persisted like user groups) since pet groups are
+    // auto-generated per encounter.
+    std::unordered_set<std::string> collapsedPetGroups_;
+
+    // Build the collapse key for a pet group row.
+    static std::string petGroupKey(uint32_t npcId, const std::string& guid) {
+        return npcId != 0 ? ("n" + std::to_string(npcId)) : ("g" + guid);
+    }
+
     // Special actor GUID for blacklist view
     static constexpr const char* BLACKLIST_ACTOR_GUID = "__BLACKLISTED__";
 
     // Render individual components
     void renderGroupingControls(bool& needsRefresh);
     void renderGroupHeader(GroupedSpellRow& row, awow::ISpellIconRenderer* iconLoader, bool& needsRefresh);
+    // Auto-generated pet-type group header (collapse only, not editable).
+    void renderPetGroupHeader(GroupedSpellRow& row);
     void renderSpellRow(GroupedSpellRow& row, awow::ISpellIconRenderer* iconLoader,
                         size_t displayIndex, int& selectedSpellIndex,
                         const std::string& actorGuid, bool& needsRefresh);

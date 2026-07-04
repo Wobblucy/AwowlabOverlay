@@ -75,6 +75,20 @@ struct PetCombatStats {
     uint32_t hit_count = 0;
 };
 
+// One collapsible group in the spell breakdown holding all abilities a
+// given pet TYPE cast. Every spawn of the same summon (all "Lesser Ghoul"
+// copies) merges into a single group keyed by NPC id; a real named pet
+// (a hunter's pet, npc id 0) gets its own group keyed by its guid. The
+// spells inside are aggregated per spell_id across spawns, exactly like
+// the owner's own spell_breakdown.
+struct PetSpellGroup {
+    std::string pet_guid;                    // representative spawn's guid (for name lookup)
+    uint32_t npc_id = 0;                      // NPC id shared by the group (0 for real pets)
+    int64_t total_amount = 0;
+    uint32_t hit_count = 0;
+    std::vector<SpellCombatStats> spells;
+};
+
 // Per-actor aggregated combat statistics
 struct ActorCombatStats {
     std::string actor_guid;
@@ -84,9 +98,10 @@ struct ActorCombatStats {
     uint32_t crit_count = 0;
     float percent_of_total = 0.0f;
     float amount_per_second = 0.0f;
-    std::vector<SpellCombatStats> spell_breakdown;
+    std::vector<SpellCombatStats> spell_breakdown;    // Owner's OWN spells only
     std::vector<TargetCombatStats> target_breakdown;  // Damage by target
     std::vector<PetCombatStats> pet_breakdown;        // Damage by pet/guardian
+    std::vector<PetSpellGroup> pet_spell_groups;      // Per-pet-type spell groups (from getRankedByActorWithPets)
 };
 
 // Query parameters for flexible filtering

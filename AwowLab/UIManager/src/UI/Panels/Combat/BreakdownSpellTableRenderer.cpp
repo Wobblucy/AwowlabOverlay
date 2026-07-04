@@ -13,6 +13,7 @@ void BreakdownSpellTableRenderer::reset() {
     actorStats_ = nullptr;
     groupedSpellRows_.clear();
     blacklistedSpellRows_.clear();
+    collapsedPetGroups_.clear();
     topSpellIds_.clear();
     needsGroupRebuild_ = false;
     isEditingGroupName_ = false;
@@ -107,6 +108,35 @@ void BreakdownSpellTableRenderer::buildGroupedSpellRows() {
             groupedSpellRows_.push_back(row);
         }
     }
+
+    // Finally, auto-generated per-pet-type groups after the owner's own
+    // spells (the player's own damage stays primary). Each pet TYPE is one
+    // collapsible header with its abilities beneath. Not user-editable, so
+    // they aren't checked against blacklist/user groups.
+    for (const auto& petGroup : actorStats_->pet_spell_groups) {
+        GroupedSpellRow headerRow;
+        headerRow.type = GroupedSpellRow::Type::PetGroupHeader;
+        headerRow.group_id = 0;
+        headerRow.spell = nullptr;
+        headerRow.group_total = petGroup.total_amount;
+        headerRow.pet_npc_id = petGroup.npc_id;
+        headerRow.pet_guid = petGroup.pet_guid;
+        headerRow.group_name = petGroup.pet_guid;  // resolved to a display name at render time
+        groupedSpellRows_.push_back(headerRow);
+
+        bool collapsed = collapsedPetGroups_.find(
+            petGroupKey(petGroup.npc_id, petGroup.pet_guid)) != collapsedPetGroups_.end();
+        if (!collapsed) {
+            for (const auto& spell : petGroup.spells) {
+                GroupedSpellRow spellRow;
+                spellRow.type = GroupedSpellRow::Type::Spell;
+                spellRow.group_id = 1;  // non-zero so the row indents like a grouped spell
+                spellRow.spell = &spell;
+                spellRow.group_total = 0;
+                groupedSpellRows_.push_back(spellRow);
+            }
+        }
+    }
 }
 
 void BreakdownSpellTableRenderer::render(awow::ISpellIconRenderer* iconLoader, const std::string& actorGuid,
@@ -167,6 +197,8 @@ void BreakdownSpellTableRenderer::render(awow::ISpellIconRenderer* iconLoader, c
 
             if (row.type == GroupedSpellRow::Type::GroupHeader) {
                 renderGroupHeader(row, iconLoader, needsRefresh);
+            } else if (row.type == GroupedSpellRow::Type::PetGroupHeader) {
+                renderPetGroupHeader(row);
             } else {
                 renderSpellRow(row, iconLoader, displayIndex, selectedSpellIndex, actorGuid, needsRefresh);
                 ++displayIndex;
@@ -322,6 +354,61 @@ void BreakdownSpellTableRenderer::renderGroupHeader(GroupedSpellRow& row, [[mayb
     ImGui::TextColored(ImVec4(1.0f, 0.9f, 0.4f, 1.0f), "%.1f%%", percent);
 
     // Column 7, 8 & 9: Empty for groups (Over%, Crit%, Hits)
+    ImGui::TableNextColumn();
+    ImGui::TableNextColumn();
+    ImGui::TableNextColumn();
+}
+
+void BreakdownSpellTableRenderer::renderPetGroupHeader(GroupedSpellRow& row) {
+    ImGui::TableNextRow();
+
+    std::string key = petGroupKey(row.pet_npc_id, row.pet_guid);
+    bool collapsed = collapsedPetGroups_.find(key) != collapsedPetGroups_.end();
+
+    // Column 1: Collapse arrow (toggle-only; pet groups aren't user-editable)
+    ImGui::TableNextColumn();
+    const char* arrow = collapsed ? ">" : "v";
+    if (awlui::Button(arrow, awlui::ButtonVariant::Ghost, awlui::ButtonSize::Sm)) {
+        if (collapsed) {
+            collapsedPetGroups_.erase(key);
+        } else {
+            collapsedPetGroups_.insert(key);
+        }
+        needsGroupRebuild_ = true;
+    }
+
+    // Column 2: Empty (icon column) - overlay has no icon loader, so pet
+    // group headers stay text-only.
+    ImGui::TableNextColumn();
+
+    // Column 3: Pet type name, resolved from the representative guid.
+    ImGui::TableNextColumn();
+    const std::string* displayName = &row.pet_guid;
+    if (petGroupNames_) {
+        auto it = petGroupNames_->find(row.pet_guid);
+        if (it != petGroupNames_->end() && !it->second.empty()) {
+            displayName = &it->second;
+        }
+    }
+    // Bracketed to read like a pet-type header (e.g. "[Lesser Ghoul]").
+    ImGui::TextColored(ImVec4(1.0f, 0.9f, 0.4f, 1.0f), "[%s]", displayName->c_str());
+
+    // Column 4: Group total
+    ImGui::TableNextColumn();
+    ImGui::TextColored(ImVec4(1.0f, 0.9f, 0.4f, 1.0f), "%s",
+                       ui::format::formatAmount(row.group_total).c_str());
+
+    // Column 5: Effective (blank for groups)
+    ImGui::TableNextColumn();
+
+    // Column 6: Percent of actor's total
+    ImGui::TableNextColumn();
+    float percent = (actorStats_ && actorStats_->total_amount > 0)
+        ? static_cast<float>(row.group_total) / static_cast<float>(actorStats_->total_amount) * 100.0f
+        : 0.0f;
+    ImGui::TextColored(ImVec4(1.0f, 0.9f, 0.4f, 1.0f), "%.1f%%", percent);
+
+    // Columns 7, 8 & 9: empty for groups
     ImGui::TableNextColumn();
     ImGui::TableNextColumn();
     ImGui::TableNextColumn();

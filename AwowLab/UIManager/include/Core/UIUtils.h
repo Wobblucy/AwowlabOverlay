@@ -102,7 +102,8 @@ inline bool isActorFriendly(
 inline std::vector<ActorCombatStats> filterFriendlyActors(
     std::vector<ActorCombatStats> stats,
     const std::shared_ptr<ActorColorGenerator>& colorGen,
-    size_t maxResults = 40
+    size_t maxResults = 40,
+    bool excludePets = false
 ) {
     if (!colorGen) {
         if (stats.size() > maxResults) {
@@ -115,6 +116,13 @@ inline std::vector<ActorCombatStats> filterFriendlyActors(
     filteredStats.reserve(stats.size());
 
     for (const auto& s : stats) {
+        // Damage-taken keeps each actor's own hits (pets aren't merged into
+        // their owner there), so a friendly pet would otherwise show as its
+        // own row. excludePets keeps the list to actual players - a pet's
+        // damage taken is its own, not the player's.
+        if (excludePets && !s.actor_guid.starts_with("Player-")) {
+            continue;
+        }
         if (isActorFriendly(s.actor_guid, colorGen)) {
             filteredStats.push_back(s);
         }

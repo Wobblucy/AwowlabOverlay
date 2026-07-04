@@ -89,6 +89,11 @@ private:
     // Per-frame spell-name fallback (nullptr for the main app path).
     const std::unordered_map<uint32_t, std::string>* spellNameFallback_ = nullptr;
 
+    // Resolved display names for the pet spell groups (pet guid -> name),
+    // rebuilt each stats refresh and handed to the table renderer so pet
+    // group headers show "[Lesser Ghoul]" rather than a raw guid.
+    std::unordered_map<std::string, std::string> petGroupNames_;
+
     // Special actor GUID for blacklist view
     static constexpr const char* BLACKLIST_ACTOR_GUID = "__BLACKLISTED__";
 

@@ -216,6 +216,15 @@ void UIActorBreakdownPanel::render(
             ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.2f, 1.0f), "%s", L("breakdown.spells"));
             ImGui::Separator();
 
+            // Resolve pet-type names for the auto-generated pet spell groups
+            // so the renderer (which has no guid->name map) can label them.
+            petGroupNames_.clear();
+            for (const auto& petGroup : actorStats_.pet_spell_groups) {
+                petGroupNames_[petGroup.pet_guid] =
+                    ui::resolveActorName(petGroup.pet_guid, guidToName, 25);
+            }
+            tableRenderer_.setPetGroupNames(&petGroupNames_);
+
             bool needsRefresh = false;
             tableRenderer_.render(iconLoader, actorGuid_, selectedSpellIndex_, needsRefresh);
             if (needsRefresh) {

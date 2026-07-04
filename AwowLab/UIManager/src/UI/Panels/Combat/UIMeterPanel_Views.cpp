@@ -232,8 +232,11 @@ void UIMeterPanel::renderDamageTakenView(
         cachedCombatStats_ = combatDb->getRankedByDamageTakenWithPets(
             window.startTime, window.endTime, 100, includeBreakdowns);
 
-        // Filter to friendly actors (players)
-        cachedCombatStats_ = ui::filterFriendlyActors(std::move(cachedCombatStats_), colorGen, 40);
+        // Filter to friendly players only. Damage taken isn't merged into
+        // owners, so a friendly pet would otherwise appear as its own row -
+        // a pet's damage taken is the pet's, not the player's.
+        cachedCombatStats_ = ui::filterFriendlyActors(
+            std::move(cachedCombatStats_), colorGen, 40, /*excludePets=*/true);
 
         cachedGrandTotal_ = 0;
         for (const auto& s : cachedCombatStats_) {

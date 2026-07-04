@@ -1,6 +1,7 @@
 #include "../CombatDatabase.h"
 #include "QueryHelpers.h"
 #include "Core/StringInterner.h"
+#include "Core/MobWeightSettings.h"
 #include "Structures/CombatTypes.h"
 #include <algorithm>
 #include <unordered_map>
@@ -234,9 +235,33 @@ std::vector<ActorCombatStats> CombatDatabase::getRankedByActorWithPets(
             // Get pet breakdown for this owner
             ownerStats.pet_breakdown = aggregatePetBreakdown(owner_guid, type, start_time_ms, end_time_ms);
 
-            // Collect combined spell breakdown (owner + all pets)
-            std::unordered_map<uint32_t, SpellCombatStats> combinedSpells;
+            // Owner's own spells stay flat in spell_breakdown; each pet TYPE
+            // becomes its own collapsible group in pet_spell_groups. Targets
+            // still merge owner + pets into one target_breakdown.
+            std::unordered_map<uint32_t, SpellCombatStats> ownSpells;
             std::unordered_map<std::string, TargetCombatStats> combinedTargets;
+
+            // Merge one aggregated spell into a per-spell_id accumulator.
+            auto mergeSpell = [](std::unordered_map<uint32_t, SpellCombatStats>& into,
+                                 const SpellCombatStats& spell) {
+                auto& entry = into[spell.spell_id];
+                entry.spell_id = spell.spell_id;
+                entry.spell_school = spell.spell_school;
+                entry.total_amount += spell.total_amount;
+                entry.effective_amount += spell.effective_amount;
+                entry.hit_count += spell.hit_count;
+                entry.crit_count += spell.crit_count;
+                entry.max_hit = std::max(entry.max_hit, spell.max_hit);
+                if (spell.min_hit < entry.min_hit) entry.min_hit = spell.min_hit;
+                // Merge normal/crit breakdown
+                entry.normal_count += spell.normal_count;
+                entry.normal_total += spell.normal_total;
+                if (spell.normal_min < entry.normal_min) entry.normal_min = spell.normal_min;
+                entry.normal_max = std::max(entry.normal_max, spell.normal_max);
+                entry.crit_total += spell.crit_total;
+                if (spell.crit_min < entry.crit_min) entry.crit_min = spell.crit_min;
+                entry.crit_max = std::max(entry.crit_max, spell.crit_max);
+            };
 
             // Add owner's own spells and targets
             auto owner_it = actorMap_->find(owner_guid);
@@ -245,23 +270,7 @@ std::vector<ActorCombatStats> CombatDatabase::getRankedByActorWithPets(
                 if (owner_table && !owner_table->empty()) {
                     auto owner_spells = aggregateSpellBreakdown(*owner_table, start_time_ms, end_time_ms);
                     for (const auto& spell : owner_spells) {
-                        auto& entry = combinedSpells[spell.spell_id];
-                        entry.spell_id = spell.spell_id;
-                        entry.spell_school = spell.spell_school;
-                        entry.total_amount += spell.total_amount;
-                        entry.effective_amount += spell.effective_amount;
-                        entry.hit_count += spell.hit_count;
-                        entry.crit_count += spell.crit_count;
-                        entry.max_hit = std::max(entry.max_hit, spell.max_hit);
-                        if (spell.min_hit < entry.min_hit) entry.min_hit = spell.min_hit;
-                        // Merge normal/crit breakdown
-                        entry.normal_count += spell.normal_count;
-                        entry.normal_total += spell.normal_total;
-                        if (spell.normal_min < entry.normal_min) entry.normal_min = spell.normal_min;
-                        entry.normal_max = std::max(entry.normal_max, spell.normal_max);
-                        entry.crit_total += spell.crit_total;
-                        if (spell.crit_min < entry.crit_min) entry.crit_min = spell.crit_min;
-                        entry.crit_max = std::max(entry.crit_max, spell.crit_max);
+                        mergeSpell(ownSpells, spell);
                     }
 
                     auto owner_targets = aggregateTargetBreakdown(*owner_table, start_time_ms, end_time_ms);
@@ -274,7 +283,18 @@ std::vector<ActorCombatStats> CombatDatabase::getRankedByActorWithPets(
                 }
             }
 
-            // Add pet spells and targets using O(1) lookup instead of O(all_pets)
+            // Build one spell group per pet TYPE. Same-NPC-id spawns merge
+            // into one group (all "Lesser Ghoul" copies -> one group); a
+            // real named pet (npc id 0) keys on its own guid. Mirrors the
+            // NPC-id grouping aggregatePetBreakdown already does for the
+            // "damage by pet" summary rows.
+            struct PetGroupAcc {
+                std::string pet_guid;
+                uint32_t npc_id = 0;
+                std::unordered_map<uint32_t, SpellCombatStats> spells;
+            };
+            std::unordered_map<uint64_t, PetGroupAcc> petGroups;  // group key -> accumulator
+
             auto petIt = ownerToPetsMap_.find(owner_guid);
             if (petIt != ownerToPetsMap_.end()) {
                 for (const auto& pet_guid : petIt->second) {
@@ -284,25 +304,23 @@ std::vector<ActorCombatStats> CombatDatabase::getRankedByActorWithPets(
                     const auto* pet_table = getCombatTable(pet_it->second, type);
                     if (!pet_table || pet_table->empty()) continue;
 
+                    // Group key: NPC id when the guid has one (summons), else
+                    // the pet's own interned id so distinct real pets aren't
+                    // collapsed together.
+                    std::string_view pet_guid_sv = guidInterner().lookup(pet_guid);
+                    uint32_t npcId = MobWeightSettings::npcIdFromGuid(pet_guid_sv);
+                    uint64_t key = npcId != 0 ? (uint64_t{1} << 32 | npcId)
+                                              : (uint64_t{2} << 32 | pet_guid);
+
+                    auto& acc = petGroups[key];
+                    if (acc.pet_guid.empty()) {
+                        acc.pet_guid = std::string(pet_guid_sv);
+                        acc.npc_id = npcId;
+                    }
+
                     auto pet_spells = aggregateSpellBreakdown(*pet_table, start_time_ms, end_time_ms);
                     for (const auto& spell : pet_spells) {
-                        auto& entry = combinedSpells[spell.spell_id];
-                        entry.spell_id = spell.spell_id;
-                        entry.spell_school = spell.spell_school;
-                        entry.total_amount += spell.total_amount;
-                        entry.effective_amount += spell.effective_amount;
-                        entry.hit_count += spell.hit_count;
-                        entry.crit_count += spell.crit_count;
-                        entry.max_hit = std::max(entry.max_hit, spell.max_hit);
-                        if (spell.min_hit < entry.min_hit) entry.min_hit = spell.min_hit;
-                        // Merge normal/crit breakdown
-                        entry.normal_count += spell.normal_count;
-                        entry.normal_total += spell.normal_total;
-                        if (spell.normal_min < entry.normal_min) entry.normal_min = spell.normal_min;
-                        entry.normal_max = std::max(entry.normal_max, spell.normal_max);
-                        entry.crit_total += spell.crit_total;
-                        if (spell.crit_min < entry.crit_min) entry.crit_min = spell.crit_min;
-                        entry.crit_max = std::max(entry.crit_max, spell.crit_max);
+                        mergeSpell(acc.spells, spell);
                     }
 
                     auto pet_targets = aggregateTargetBreakdown(*pet_table, start_time_ms, end_time_ms);
@@ -315,13 +333,37 @@ std::vector<ActorCombatStats> CombatDatabase::getRankedByActorWithPets(
                 }
             }
 
-            // Convert spell map to sorted vector
-            ownerStats.spell_breakdown.reserve(combinedSpells.size());
-            for (auto& [spell_id, spell_stats] : combinedSpells) {
+            // Owner's own spells -> flat spell_breakdown (sorted by total).
+            ownerStats.spell_breakdown.reserve(ownSpells.size());
+            for (auto& [spell_id, spell_stats] : ownSpells) {
                 ownerStats.spell_breakdown.push_back(std::move(spell_stats));
             }
             std::sort(ownerStats.spell_breakdown.begin(), ownerStats.spell_breakdown.end(),
                 [](const SpellCombatStats& a, const SpellCombatStats& b) {
+                    return a.total_amount > b.total_amount;
+                });
+
+            // Finalize pet groups: sort each group's spells, compute totals,
+            // then order the groups by total damage descending.
+            ownerStats.pet_spell_groups.reserve(petGroups.size());
+            for (auto& [key, acc] : petGroups) {
+                PetSpellGroup group;
+                group.pet_guid = std::move(acc.pet_guid);
+                group.npc_id = acc.npc_id;
+                group.spells.reserve(acc.spells.size());
+                for (auto& [spell_id, spell_stats] : acc.spells) {
+                    group.total_amount += spell_stats.total_amount;
+                    group.hit_count += spell_stats.hit_count;
+                    group.spells.push_back(std::move(spell_stats));
+                }
+                std::sort(group.spells.begin(), group.spells.end(),
+                    [](const SpellCombatStats& a, const SpellCombatStats& b) {
+                        return a.total_amount > b.total_amount;
+                    });
+                ownerStats.pet_spell_groups.push_back(std::move(group));
+            }
+            std::sort(ownerStats.pet_spell_groups.begin(), ownerStats.pet_spell_groups.end(),
+                [](const PetSpellGroup& a, const PetSpellGroup& b) {
                     return a.total_amount > b.total_amount;
                 });
 
