@@ -76,6 +76,9 @@ OverlayApplication::OverlayApplication() {
     colorGen_ = std::make_shared<ActorColorGenerator>();
     meterPanel_ = std::make_unique<UIMeterPanel>(1);  // Instance 1
     meterPanel_->setVisible(true);  // Always visible in overlay mode
+    // The overlay draws the phase controls in its own top header row,
+    // so keep the meter body from drawing a duplicate set.
+    meterPanel_->setPhaseControlsExternal(true);
     deathRecapPanel_ = std::make_unique<UIDeathRecapPanel>();
     breakdownPanel_ = std::make_unique<UIActorBreakdownPanel>();
     avoidanceBreakdownPanel_ = std::make_unique<UIAvoidanceBreakdownPanel>();
@@ -514,22 +517,23 @@ void OverlayApplication::renderUI() {
     ImVec2 dragSize(ImGui::GetWindowWidth(), 16.0f);
     ImGui::InvisibleButton("##DragHandle", dragSize);
 
-    // Track drag start position
+    // Window position captured once when the drag begins. The move is
+    // driven by GetMouseDragDelta, which ImGui accumulates from the click
+    // point in raw mouse motion - it does not read the mouse relative to
+    // the window, so moving the window underneath the cursor can't feed
+    // back into the delta. Reading GetMousePos() each frame and moving the
+    // window by it does feed back, and the residual error compounds the
+    // longer you drag - that was the growing jitter.
     static int dragStartWinX = 0, dragStartWinY = 0;
-    static ImVec2 dragStartMousePos;
 
     if (ImGui::IsItemActive()) {
         if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
-            // Store initial positions when drag starts
             window_->getPosition(dragStartWinX, dragStartWinY);
-            dragStartMousePos = ImGui::GetMousePos();
         }
 
-        // Calculate offset from drag start
-        ImVec2 currentMouse = ImGui::GetMousePos();
-        int newX = dragStartWinX + static_cast<int>(currentMouse.x - dragStartMousePos.x);
-        int newY = dragStartWinY + static_cast<int>(currentMouse.y - dragStartMousePos.y);
-        window_->setPosition(newX, newY);
+        ImVec2 dragDelta = ImGui::GetMouseDragDelta(ImGuiMouseButton_Left, 0.0f);
+        window_->setPosition(dragStartWinX + static_cast<int>(dragDelta.x),
+                             dragStartWinY + static_cast<int>(dragDelta.y));
     }
 
     // Show drag cursor hint
@@ -591,6 +595,37 @@ void OverlayApplication::renderUI() {
     }
     if (ImGui::IsItemHovered()) {
         ImGui::SetTooltip("%s", L("mobweight.title"));
+    }
+
+    // Phase editor button + selector, sitting next to the mob-weight
+    // button on the top row. The meter body suppresses its own copy
+    // (setPhaseControlsExternal) so these are the only ones shown. Only
+    // appears for boss segments, which is when the panel has phases.
+    if (meterPanel_ && meterPanel_->getShowPhaseControls()) {
+        ImGui::SameLine();
+        if (awlui::IconButton("overlay_phase_editor", "+")) {
+            meterPanel_->requestPhaseEditor();
+        }
+        if (ImGui::IsItemHovered()) {
+            ImGui::SetTooltip("%s", L("phases.title"));
+        }
+
+        if (meterPanel_->hasPhases()) {
+            std::vector<const char*> phaseNames;
+            phaseNames.reserve(meterPanel_->phaseCount() + 1);
+            phaseNames.push_back(L("meter.phase_all"));
+            for (int i = 0; i < meterPanel_->phaseCount(); ++i) {
+                phaseNames.push_back(meterPanel_->phaseLabel(i));
+            }
+            int current = meterPanel_->getSelectedPhase() + 1;  // slot 0 = all
+            ImGui::SameLine();
+            ImGui::SetNextItemWidth(96.0f);
+            if (awlui::Combo("##OverlayPhaseFilter", &current,
+                             phaseNames.data(),
+                             static_cast<int>(phaseNames.size()))) {
+                meterPanel_->selectPhase(current - 1);
+            }
+        }
     }
 
     ImGui::PopStyleColor(2);  // FrameBg colors
@@ -998,7 +1033,6 @@ void OverlayApplication::renderUI() {
     {
         static bool draggingFromBody = false;
         static int bodyDragWinX = 0, bodyDragWinY = 0;
-        static ImVec2 bodyDragMouseStart;
 
         if (!draggingFromBody) {
             if (ImGui::IsMouseClicked(ImGuiMouseButton_Left) &&
@@ -1006,13 +1040,14 @@ void OverlayApplication::renderUI() {
                 !ImGui::IsAnyItemHovered() && !ImGui::IsAnyItemActive()) {
                 draggingFromBody = true;
                 window_->getPosition(bodyDragWinX, bodyDragWinY);
-                bodyDragMouseStart = ImGui::GetMousePos();
             }
         } else if (ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
-            ImVec2 currentMouse = ImGui::GetMousePos();
-            window_->setPosition(
-                bodyDragWinX + static_cast<int>(currentMouse.x - bodyDragMouseStart.x),
-                bodyDragWinY + static_cast<int>(currentMouse.y - bodyDragMouseStart.y));
+            // Drag by the accumulated delta from the click point, not by the
+            // window-relative mouse position, which feeds back as the window
+            // moves (see the drag-handle note above).
+            ImVec2 dragDelta = ImGui::GetMouseDragDelta(ImGuiMouseButton_Left, 0.0f);
+            window_->setPosition(bodyDragWinX + static_cast<int>(dragDelta.x),
+                                 bodyDragWinY + static_cast<int>(dragDelta.y));
         } else {
             draggingFromBody = false;
         }

@@ -59,8 +59,11 @@ public:
 
     // Visibility control
     bool isVisible() const { return visible_; }
-    void setVisible(bool visible) { visible_ = visible; }
-    void toggleVisible() { visible_ = !visible_; }
+    void setVisible(bool visible) {
+        if (visible && !visible_) justOpened_ = true;
+        visible_ = visible;
+    }
+    void toggleVisible() { setVisible(!visible_); }
 
     // True once after any rule edit since the last call; the owner
     // polls this to rebuild the meter phase windows
@@ -77,6 +80,7 @@ public:
 
 private:
     bool visible_ = false;
+    bool justOpened_ = false;  // Focus + raise the window the first frame it shows
     bool rulesChanged_ = false;
     ImVec2 lastMeasuredSize_ = ImVec2(0, 0);
 

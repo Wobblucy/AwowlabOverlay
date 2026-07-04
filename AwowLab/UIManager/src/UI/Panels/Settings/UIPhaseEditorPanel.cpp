@@ -58,7 +58,23 @@ void UIPhaseEditorPanel::render(const PhaseEditorData& data) {
 
     ImGui::SetNextWindowSize(ImVec2(560, 480), ImGuiCond_FirstUseEver);
 
+    // The overlay's meter fills a borderless fullscreen window, so a fresh
+    // editor can open behind it. Pull it to the front and focus it the
+    // first frame it shows so it's never lost under the meter.
+    if (justOpened_) {
+        ImGui::SetNextWindowFocus();
+        justOpened_ = false;
+    }
+
     if (ImGui::Begin(L("phases.title"), &visible_)) {
+        // A plain Close button in the body - the title-bar X is small and
+        // easy to miss against the game behind a click-through overlay.
+        if (awlui::Button(L("btn.close"), awlui::ButtonVariant::Secondary,
+                          awlui::ButtonSize::Sm)) {
+            visible_ = false;
+        }
+        ImGui::Spacing();
+
         renderRuleList(data);
 
         ImGui::Spacing();

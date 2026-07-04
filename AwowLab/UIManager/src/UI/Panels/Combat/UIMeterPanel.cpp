@@ -285,8 +285,10 @@ void UIMeterPanel::renderEmbeddedContent(
 
         // Phase selector + editor button on their own row - only for
         // boss segments (the owner flips showPhaseControls_ off when
-        // the segment has no encounter id)
-        if (showPhaseControls_) {
+        // the segment has no encounter id). The overlay draws these in
+        // its own top header row instead, so it suppresses the in-body
+        // copy via phaseControlsExternal_.
+        if (showPhaseControls_ && !phaseControlsExternal_) {
             renderPhaseControls();
         }
 
@@ -667,10 +669,28 @@ void UIMeterPanel::renderMeterOptionsMenu() {
 }
 
 void UIMeterPanel::setPhases(std::vector<MeterPhase> phases) {
+    // The overlay re-pushes the resolved phases every frame, so only reset
+    // the selection when the set of phase windows actually changed - a new
+    // pull, an added rule, or a boundary shifting as its trigger fires.
+    // Resetting unconditionally would snap the user's chosen phase back to
+    // "all phases" on the very next frame, showing the whole encounter.
+    const bool sameSet =
+        phases.size() == phases_.size() &&
+        std::equal(phases.begin(), phases.end(), phases_.begin(),
+                   [](const MeterPhase& a, const MeterPhase& b) {
+                       return a.start_ms == b.start_ms && a.end_ms == b.end_ms &&
+                              a.label == b.label;
+                   });
+
     phases_ = std::move(phases);
-    selectedPhase_ = -1;
-    filterStartTime_ms_ = 0;
-    filterEndTime_ms_ = 0;
+
+    if (!sameSet) {
+        selectedPhase_ = -1;
+        filterStartTime_ms_ = 0;
+        filterEndTime_ms_ = 0;
+    } else if (selectedPhase_ >= static_cast<int>(phases_.size())) {
+        selectedPhase_ = -1;
+    }
 }
 
 void UIMeterPanel::renderReportButton(

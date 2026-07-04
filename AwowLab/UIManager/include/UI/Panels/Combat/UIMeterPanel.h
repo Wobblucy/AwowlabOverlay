@@ -166,6 +166,11 @@ public:
     // make sense on boss pulls, so it stays hidden for trash/unknown
     // segments. The windowed path always shows the controls.
     void setShowPhaseControls(bool show) { showPhaseControls_ = show; }
+    bool getShowPhaseControls() const { return showPhaseControls_; }
+
+    // The overlay draws the phase controls in its own header row, so it
+    // sets this to keep the meter body from drawing a second copy.
+    void setPhaseControlsExternal(bool external) { phaseControlsExternal_ = external; }
 
     // True once after the "+" button next to the phase combo was
     // clicked; the owner polls this to open the phase editor panel
@@ -173,6 +178,33 @@ public:
         bool requested = phaseEditorRequested_;
         phaseEditorRequested_ = false;
         return requested;
+    }
+
+    // The overlay draws the phase "+" button and selector in its own top
+    // header row (next to the mob-weight button) rather than inside the
+    // meter body. These let it drive the same state the embedded controls
+    // use. requestPhaseEditor() opens the editor; hasPhases()/phaseCount()
+    // and get/setSelectedPhase() run the selector. selectPhase(-1) means
+    // "all phases". The windowed app keeps drawing the controls inline.
+    void requestPhaseEditor() { phaseEditorRequested_ = true; }
+    bool hasPhases() const { return !phases_.empty(); }
+    int phaseCount() const { return static_cast<int>(phases_.size()); }
+    const char* phaseLabel(int index) const {
+        return (index >= 0 && index < static_cast<int>(phases_.size()))
+                   ? phases_[index].label.c_str() : "";
+    }
+    int getSelectedPhase() const { return selectedPhase_; }
+    void selectPhase(int index) {
+        if (index < 0 || index >= static_cast<int>(phases_.size())) {
+            selectedPhase_ = -1;
+            filterStartTime_ms_ = 0;
+            filterEndTime_ms_ = 0;
+            return;
+        }
+        selectedPhase_ = index;
+        const auto& phase = phases_[index];
+        filterStartTime_ms_ = (phase.start_ms > 0) ? phase.start_ms : 1;
+        filterEndTime_ms_ = phase.end_ms;
     }
 
 private:
@@ -218,6 +250,10 @@ private:
     // Embedded-path visibility for the phase selector + editor button
     // (see setShowPhaseControls)
     bool showPhaseControls_ = false;
+
+    // When set, the meter body skips its own phase controls because the
+    // owner (the overlay) draws them elsewhere (see setPhaseControlsExternal)
+    bool phaseControlsExternal_ = false;
 
     // Raised by the "+" button next to the phase combo; the window
     // manager consumes it and opens the phase editor
