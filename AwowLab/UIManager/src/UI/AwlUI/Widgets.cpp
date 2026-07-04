@@ -128,11 +128,13 @@ bool Button(const char* label, ButtonVariant variant, ButtonSize sizePreset, ImV
         draw->AddRect(rectMin, rectMax, U32(pal.border), T::RadiusControl, 0, T::BorderThin);
     }
 
-    // Centered label.
+    // Centered label. Stop at "##" like stock ImGui buttons do - the
+    // measurement above already does, so drawing past it would spill
+    // the ID suffix outside the button.
     const ImVec2 textPos = ImVec2(
         rectMin.x + (w - labelSize.x) * 0.5f,
         rectMin.y + (h - labelSize.y) * 0.5f);
-    draw->AddText(textPos, U32(pal.text), label);
+    draw->AddText(textPos, U32(pal.text), label, std::strstr(label, "##"));
 
     // Keyboard focus outline (uses reserved amber).
     if (focused && !disabled) {
