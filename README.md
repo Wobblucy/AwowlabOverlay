@@ -1,12 +1,12 @@
 # AwowLab Overlay
 
-A lightweight, always-on-top damage meter for World of Warcraft that reads your combat log in real time. No addon, no in-game overhead — it runs as its own window on top of the game.
+A lightweight, always-on-top damage meter for World of Warcraft that reads your combat log as the game writes it. No addon, no in-game overhead — it runs as its own window on top of the game.
 
 The overlay is the standalone companion to [AwowLab](https://github.com/Wobblucy/WoWLogreplayer-Public), a full combat log replayer and analysis tool. Everything you see live in the overlay can be explored in depth in AwowLab after the pull.
 
 ## Features
 
-- **Live meters** — DPS, HPS, and damage taken, updating as you play
+- **Live meters** — DPS, HPS, and damage taken, updating as the game writes the log
 - **Pull history** — flip back through earlier pulls without leaving the fight
 - **Views** — current pull, whole dungeon, or full session
 - **Death recap** — what killed you, hit by hit
