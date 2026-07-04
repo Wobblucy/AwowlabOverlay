@@ -679,11 +679,10 @@ void OverlayApplication::renderUI() {
                     pullHistory.size());
             }
         } else if (selectedSegment_ == SEGMENT_CURRENT) {
-            if (!currentPull.label.empty()) {
-                snprintf(previewLabel, sizeof(previewLabel), "> %s", currentPull.label.c_str());
-            } else {
-                snprintf(previewLabel, sizeof(previewLabel), "> Current");
-            }
+            // The live view slides over whatever segment is active, so the
+            // specific boss/trash label isn't meaningful here - just call
+            // it Current.
+            snprintf(previewLabel, sizeof(previewLabel), "> Current");
         } else if (selectedSegment_ < pullHistory.size()) {
             size_t displayNum = pullHistory.size() - selectedSegment_;
             snprintf(previewLabel, sizeof(previewLabel), "#%zu %s",
@@ -692,13 +691,7 @@ void OverlayApplication::renderUI() {
 
         if (ImGui::BeginCombo("##Segment", previewLabel)) {
             bool isCurrent = (selectedSegment_ == SEGMENT_CURRENT);
-            char currentLabel[64];
-            if (!currentPull.label.empty()) {
-                snprintf(currentLabel, sizeof(currentLabel), "> %s (Live)", currentPull.label.c_str());
-            } else {
-                snprintf(currentLabel, sizeof(currentLabel), "> Current (Live)");
-            }
-            if (ImGui::Selectable(currentLabel, isCurrent)) {
+            if (ImGui::Selectable("> Current (Live)", isCurrent)) {
                 selectedSegment_ = SEGMENT_CURRENT;
                 viewMode_ = StatsViewMode::CurrentPull;
                 stats_->clearHistoricalPullSelection();
