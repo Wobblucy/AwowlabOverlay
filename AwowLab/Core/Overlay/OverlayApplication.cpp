@@ -506,12 +506,16 @@ void OverlayApplication::renderUI() {
     // DisplaySize the same frame.
     updateModalAutoGrow();
 
-    // Create fullscreen overlay window
+    // Create fullscreen overlay window. NoBringToFrontOnFocus keeps this
+    // background window from jumping over the modal panels (mob weights,
+    // breakdowns, phase editor) when the user clicks the meter - those
+    // panels are separate windows and must always stay on top once open.
     ImGui::SetNextWindowPos(ImVec2(0, 0));
     ImGui::SetNextWindowSize(ImGui::GetIO().DisplaySize);
     ImGui::Begin("##Overlay", nullptr,
         ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize |
-        ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoScrollbar);
+        ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoScrollbar |
+        ImGuiWindowFlags_NoBringToFrontOnFocus);
 
     // Overlay-focus hotkeys (Ctrl+Left/Right cycles views,
     // Ctrl+Shift+L fallback lock toggle). Runs here because

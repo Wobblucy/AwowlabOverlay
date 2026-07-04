@@ -71,11 +71,20 @@ void UIMobWeightPanel::rebuildRows(const CombatDatabase* combatDb,
 
     // Every damaged unit appears as a key in the damage-taken index.
     // Fold spawns of the same npc id into one row.
+    const auto& petToOwner = combatDb->getPetToOwnerMap();
     std::unordered_map<uint32_t, CreatureRow> byNpcId;
     for (const auto& [guidId, records] : combatDb->getDamageTakenIndex()) {
         std::string_view guid = guidInterner().lookup(guidId);
         uint32_t npcId = MobWeightSettings::npcIdFromGuid(guid);
         if (npcId == 0) continue;  // players, pets without npc ids, etc.
+
+        // Skip a player's own summons (a hunter pet, a DK's army). They
+        // take damage and carry npc ids, but they're not mobs to weight.
+        auto ownerIt = petToOwner.find(guidId);
+        if (ownerIt != petToOwner.end() &&
+            guidInterner().lookup(ownerIt->second).starts_with("Player-")) {
+            continue;
+        }
 
         auto& row = byNpcId[npcId];
         row.npcId = npcId;

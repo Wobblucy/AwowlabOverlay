@@ -393,9 +393,12 @@ public:
     // Creates: combat_records.csv, actor_stats.csv, spell_breakdown.csv
     void dumpToCSV(const std::string& output_dir) const;
 
+    // Interned pet -> owner map. The mob-weight panel reads it to keep a
+    // player's own summons out of the weightable-mob list.
+    const std::unordered_map<StringInterner::Id, StringInterner::Id>& getPetToOwnerMap() const { return petToOwnerMap_; }
+
 #ifndef NDEBUG
     // Debug-only accessors for DebugDatabaseDumper (interned GUID ids)
-    const std::unordered_map<StringInterner::Id, StringInterner::Id>& getPetToOwnerMap() const { return petToOwnerMap_; }
     const std::unordered_map<StringInterner::Id, std::vector<StringInterner::Id>>& getOwnerToPetsMap() const { return ownerToPetsMap_; }
     const std::unordered_map<uint32_t, std::vector<const CombatRecord*>>& getHealingReceivedIndex() const { return healingReceivedIndex_; }
 #endif
