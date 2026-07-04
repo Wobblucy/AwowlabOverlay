@@ -268,7 +268,55 @@ std::pair<int32_t, int32_t> LiveCombatStats::getTimeRange(StatsViewMode mode) co
 
     switch (mode) {
         case StatsViewMode::CurrentPull: {
-            return getPullTimeRange(&snapshot.currentPull);
+            // The top "live" option is a sliding view over the currently
+            // active combat segment:
+            //
+            //  - Between bosses, currentPull_ is the collated trash
+            //    segment (one per inter-boss gap now that idle no longer
+            //    splits it). Its window is [trashStart, now], growing as
+            //    each trash flush lands.
+            //
+            //  - During a boss, currentPull_ is the boss segment. Boss
+            //    records don't appear in the log until the kill flushes
+            //    them, so there's a stretch after ENCOUNTER_START where
+            //    the boss window holds no data yet. For that stretch we
+            //    fall back to session-so-far (min..max over everything
+            //    the combatDb currently holds - the preceding trash,
+            //    which startNewPull deliberately left in place) so the
+            //    meter shows the run rather than blanking. The instant
+            //    the boss's own records land we snap to just the boss
+            //    window.
+            const PullSegment& pull = snapshot.currentPull;
+
+            if (pull.isEncounter && combatDb_) {
+                // "Has the boss data flushed?" Parsing is timestamp
+                // ordered, so the combatDb's max timestamp only reaches
+                // the boss's [start,end] window once the kill burst has
+                // been parsed. Before that, max sits at the pre-boss
+                // trash tail (< the boss start), so this is false and we
+                // use the session fallback below. A cheap, robust check
+                // that needs no per-record scan.
+                bool bossDataFlushed =
+                    combatDb_->getMaxTimestamp() >= pull.startTime_ms;
+                if (!bossDataFlushed) {
+                    // Session-so-far: everything currently loaded. An
+                    // empty combatDb reports min as UINT32_MAX (-1 as
+                    // int32) and max as 0, so guard on empty() and hand
+                    // back a wide-open window rather than that sentinel
+                    // pair.
+                    if (combatDb_->empty()) {
+                        return {0, INT32_MAX};
+                    }
+                    return {combatDb_->getMinTimestamp(),
+                            combatDb_->getMaxTimestamp()};
+                }
+                // Boss data present - snap to exactly the boss window.
+                // getPullTimeRange keeps the in-progress end at INT32_MAX
+                // so late interrupts/deaths just past the last damage
+                // event aren't truncated (each render clamps further).
+            }
+
+            return getPullTimeRange(&pull);
         }
 
         case StatsViewMode::HistoricalPull: {
@@ -364,6 +412,13 @@ std::string LiveCombatStats::getCurrentSegmentName() const {
         return snapshot.pullHistory[selectedPullIndex_].label;
     }
 
+    // The live segment's label is currentPull_'s: the collated trash
+    // block between bosses, the boss name during/after a boss. During the
+    // session-so-far fallback window (boss ENCOUNTER_START seen but its
+    // records not flushed yet) currentPull_ is already the boss, so the
+    // header reads the boss name - that's what's being fought, which is
+    // the least surprising label even while the meter is showing the
+    // wider session window underneath.
     return snapshot.currentPull.label;
 }
 

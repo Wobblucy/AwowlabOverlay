@@ -305,7 +305,10 @@ void LiveLogSession::handleEncounterStart(const std::vector<std::string_view>& t
     std::string label = inMythicPlus_
         ? "Boss " + std::to_string(currentBossNumber_) + ": " + std::string(data.encounterName)
         : std::string(data.encounterName);  // Raids use plain boss name
-    startNewPull(timestamp_ms, byteOffset, label);
+    // Keep the preceding trash data (clearData=false): the boss's own
+    // records won't flush until the kill, and the live view falls back to
+    // session-so-far in the meantime.
+    startNewPull(timestamp_ms, byteOffset, label, /*clearData=*/false);
 
     // Mark this as an encounter
     currentPull_.isEncounter = true;
@@ -406,13 +409,27 @@ void LiveLogSession::handleChallengeModeEnd(const std::vector<std::string_view>&
     }
 }
 
-void LiveLogSession::startNewPull(int32_t timestamp_ms, size_t byteOffset, const std::string& label) {
+void LiveLogSession::startNewPull(int32_t timestamp_ms, size_t byteOffset,
+                                  const std::string& label, bool clearData) {
     // Deferred clear from the previous endCurrentPull(). We keep the
     // last pull's ActorMap around between pulls so the live view keeps
     // showing that pull's numbers instead of going blank while we wait
     // for the next combat event. The moment a new pull actually starts,
     // wipe and begin accumulating fresh.
-    clearLivePullData();
+    //
+    // A boss ENCOUNTER_START passes clearData=false. Boss combat records
+    // do not appear in the log until the kill flushes them, so if we
+    // wiped here the live view would sit on an empty ActorMap for the
+    // whole fight (ENCOUNTER_START..ENCOUNTER_END). Keeping the preceding
+    // trash data around lets the live view fall back to session-so-far
+    // until the boss records land; the boss segment's own [start,end]
+    // window filters that older trash out the moment we snap to the boss
+    // (getTimeRange's CurrentPull case). The next trash pull's
+    // startNewPull() still clears, so memory stays bounded per inter-boss
+    // block.
+    if (clearData) {
+        clearLivePullData();
+    }
 
     currentPull_ = PullSegment{};
     currentPull_.startByteOffset = byteOffset;
@@ -492,15 +509,20 @@ void LiveLogSession::endCurrentPull(int32_t timestamp_ms, size_t byteOffset) {
     }
 }
 
-void LiveLogSession::checkIdleTimeout(int32_t currentTime_ms, size_t byteOffset) {
-    if (combatState_ != CombatState::InCombat) return;  // Don't timeout during boss encounters
-
-    int32_t idleTime = currentTime_ms - lastCombatEventTime_ms_;
-    if (idleTime >= combatIdleTimeout_.count()) {
-        // End the current pull
-        endCurrentPull(lastCombatEventTime_ms_, byteOffset);
-        combatState_ = CombatState::Idle;
-    }
+void LiveLogSession::checkIdleTimeout(int32_t /*currentTime_ms*/, size_t /*byteOffset*/) {
+    // Idle gaps no longer split a trash segment. One trash segment now
+    // spans an entire inter-boss gap: from the previous boss's end (or
+    // the dungeon/session start) up to the next boss's ENCOUNTER_START,
+    // accumulating across every combat burst and every quiet stretch in
+    // between. Only a boss boundary (handleEncounterStart), a new M+
+    // dungeon (handleChallengeModeStart) or a session reset closes a
+    // trash segment now - not a lull in combat. Leaving the pull open
+    // during idle is what collates the whole trash block into a single
+    // entry in the segment list instead of "Trash #1..#12".
+    //
+    // Kept as a no-op hook (rather than deleting the call site) so the
+    // combat-state machine and future idle-driven behavior have one
+    // place to live.
 }
 
 void LiveLogSession::selectPull(size_t pullIndex) {

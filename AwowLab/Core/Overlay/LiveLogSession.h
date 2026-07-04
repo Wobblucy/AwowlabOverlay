@@ -401,7 +401,11 @@ private:
     void handleEncounterEnd(const std::vector<std::string_view>& tokens, size_t byteOffset);
     void handleChallengeModeStart(const std::vector<std::string_view>& tokens);
     void handleChallengeModeEnd(const std::vector<std::string_view>& tokens);
-    void startNewPull(int32_t timestamp_ms, size_t byteOffset, const std::string& label);
+    // clearData=false keeps the accumulated ActorMap in place (used for
+    // boss ENCOUNTER_START so the live view has session-so-far data to
+    // fall back on until the boss's own records flush on the kill).
+    void startNewPull(int32_t timestamp_ms, size_t byteOffset, const std::string& label,
+                      bool clearData = true);
     void endCurrentPull(int32_t timestamp_ms, size_t byteOffset);
     void checkIdleTimeout(int32_t currentTime_ms, size_t byteOffset);
     // Date-aware timestamp conversion (epoch milliseconds). Must stay
