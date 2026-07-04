@@ -169,13 +169,26 @@ std::vector<ActorCombatStats> CombatDatabase::getRankedByActorWithPets(
 
         // Iterate through time window, splitting between actor and blacklist
         for (auto it = start_it; it != combat_table->end() && it->timestamp_ms <= end_time_ms; ++it) {
+            // Friendly fire counts as damage taken, not damage done
+            if (it->flags & CombatEventFlags::FriendlyFire) {
+                continue;
+            }
+
             bool isBlacklisted = blacklistedSpells && blacklistedSpells->count(it->spell_id) > 0;
             bool isCrit = (it->flags & CombatEventFlags::Critical) != 0;
 
+            // Mob weighting: damage to a discounted target contributes at
+            // its configured fraction. Applied here too - this with-pets
+            // path is what the meter's damage view actually calls, so
+            // leaving it raw made weights look like they did nothing.
+            const float w = targetWeight(it->target_guid_id);
+            const int64_t amt = applyWeight(it->amount, w);
+            const int64_t eff = applyWeight(it->effective_amount, w);
+
             if (isBlacklisted) {
                 // Add to blacklist actor
-                blacklistStats.total_amount += it->amount;
-                blacklistStats.effective_amount += it->effective_amount;
+                blacklistStats.total_amount += amt;
+                blacklistStats.effective_amount += eff;
                 blacklistStats.hit_count++;
                 if (isCrit) {
                     blacklistStats.crit_count++;
@@ -185,22 +198,22 @@ std::vector<ActorCombatStats> CombatDatabase::getRankedByActorWithPets(
                 auto& spellEntry = blacklistSpellBreakdown[it->spell_id];
                 spellEntry.spell_id = it->spell_id;
                 spellEntry.spell_school = it->spell_school;
-                spellEntry.total_amount += it->amount;
-                spellEntry.effective_amount += it->effective_amount;
+                spellEntry.total_amount += amt;
+                spellEntry.effective_amount += eff;
                 spellEntry.hit_count++;
                 if (isCrit) {
                     spellEntry.crit_count++;
                 }
-                spellEntry.max_hit = std::max(spellEntry.max_hit, it->amount);
-                spellEntry.min_hit = std::min(spellEntry.min_hit, it->amount);
+                spellEntry.max_hit = std::max(spellEntry.max_hit, amt);
+                spellEntry.min_hit = std::min(spellEntry.min_hit, amt);
             } else {
                 // Add to the effective owner's accumulated stats
                 auto& ownerEntry = aggregatedStats[effective_owner];
                 if (ownerEntry.actor_guid.empty()) {
                     ownerEntry.actor_guid = std::string(guidInterner().lookup(effective_owner));
                 }
-                ownerEntry.total_amount += it->amount;
-                ownerEntry.effective_amount += it->effective_amount;
+                ownerEntry.total_amount += amt;
+                ownerEntry.effective_amount += eff;
                 ownerEntry.hit_count++;
                 if (isCrit) {
                     ownerEntry.crit_count++;

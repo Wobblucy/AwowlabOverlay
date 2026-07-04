@@ -180,6 +180,15 @@ public:
         return requested;
     }
 
+    // Force the next frame to re-aggregate from the database. The views
+    // cache their ranked stats and only refresh on their own triggers
+    // (scrub, filter, view switch, a periodic tick); a mob-weight edit
+    // isn't one of those, so the owner calls this after changing weights
+    // so the discounted numbers show immediately instead of on the next
+    // periodic refresh. No reparse - the records are unchanged, only the
+    // query-time aggregation re-runs.
+    void invalidateStatsCache() { cachedCombatStats_.clear(); }
+
     // The overlay draws the phase "+" button and selector in its own top
     // header row (next to the mob-weight button) rather than inside the
     // meter body. These let it drive the same state the embedded controls

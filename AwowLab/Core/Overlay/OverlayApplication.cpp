@@ -438,7 +438,12 @@ void OverlayApplication::updateModalAutoGrow() {
         want(mobWeightPanel_->getLastMeasuredSize(), 540, 500);
     }
     if (phaseEditorPanel_ && phaseEditorPanel_->isVisible()) {
-        want(phaseEditorPanel_->getLastMeasuredSize(), 560, 500);
+        // Fixed target, not the live measured size: the editor window is
+        // AlwaysAutoResize, so feeding its measured size back into the OS
+        // grow made the two chase each other and jitter every frame. A
+        // fixed roomy target lets the OS window settle once while the
+        // auto-sizing editor floats inside it.
+        want(ImVec2(0, 0), 620, 620);
     }
 
     bool wantsBig = (wantW > 0);
@@ -982,6 +987,9 @@ void OverlayApplication::renderUI() {
             if (const auto* db = stats_->getCombatDatabase()) {
                 db->refreshTargetWeights();
             }
+            // The meter caches its ranked stats, so nudge it to re-aggregate
+            // with the new weights this frame rather than on the next tick.
+            if (meterPanel_) meterPanel_->invalidateStatsCache();
             // Write through immediately so the main app sees the edit
             // and nothing is lost if the overlay is closed abruptly
             SettingsCache::instance().flush();
