@@ -52,6 +52,8 @@ add_executable(AwowLabOverlay WIN32
     Core/Overlay/OverlayVulkanContext.cpp
     Core/Overlay/OverlayVulkanContext.h
     Core/Overlay/PullSegment.h
+    Core/PhaseResolver.cpp
+    Core/PhaseResolver.h
     Core/PhaseSettings.cpp
     Core/PhaseSettings.h
     Core/Settings/Crypto.cpp

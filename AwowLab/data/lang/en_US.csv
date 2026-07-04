@@ -145,3 +145,15 @@ meter.report_tooltip,Copy a one-line summary for pasting into chat
 meter.report_copied,Copied!
 
 phases.title,Boss Phases
+phases.kind_cast,First cast of
+phases.kind_time,At
+phases.kind_emote,Emote
+phases.not_this_pull,not reached this pull
+phases.add_time,Add time split
+phases.time_hint,m:ss
+phases.emotes_header,Emotes this pull
+phases.split_here,Split here
+phases.no_emotes,No emotes in this pull
+phases.no_rules,No phase rules for this encounter yet
+phases.casts_header,Boss casts this pull
+meter.class_colors,Color bars by class

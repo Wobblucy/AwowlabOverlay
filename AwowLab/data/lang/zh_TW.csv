@@ -103,3 +103,15 @@ meter.report_tooltip,複製單行摘要以貼到聊天框
 meter.report_copied,已複製！
 
 phases.title,首領階段
+phases.kind_cast,首次施放
+phases.kind_time,於
+phases.kind_emote,表情
+phases.not_this_pull,本次嘗試未達到
+phases.add_time,新增時間分段
+phases.time_hint,m:ss
+phases.emotes_header,本次嘗試的表情
+phases.split_here,在此分段
+phases.no_emotes,本次嘗試沒有表情
+phases.no_rules,此首領尚無階段規則
+phases.casts_header,本次嘗試的首領施法
+meter.class_colors,依職業為長條著色

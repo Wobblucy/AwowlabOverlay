@@ -1,8 +1,10 @@
 #include "UI/Panels/Combat/BreakdownSpellTableRenderer.h"
 #include "UI/ISpellIconRenderer.h"
 #include "UI/AwlUI/Widgets.h"
+#include "UI/SpellContextMenu.h"
 #include "Core/NumberFormatter.h"
 #include "Core/LocalizationManager.h"
+#include "Core/PhaseSettings.h"
 #include "Core/SpellNameDatabase.h"
 #include <algorithm>
 #include <cstring>
@@ -383,6 +385,21 @@ void BreakdownSpellTableRenderer::renderSpellRow(GroupedSpellRow& row, awow::ISp
                 spellGroupSettings_.saveToSettings();
                 needsGroupRebuild_ = true;
                 needsRefresh = true;
+            }
+        }
+
+        // Phase trigger toggle: the first cast of the marked spell
+        // starts a new phase in the meters for this encounter. Only
+        // offered while a boss encounter is loaded (melee row has no
+        // real spell id to key on). The request funnels through the
+        // same owner-side handling as the spell-icon context menu.
+        uint32_t phaseEncounterId = SpellContextMenu::getCurrentEncounterId();
+        if (phaseEncounterId != 0 && spell.spell_id > 1) {
+            bool isTrigger = PhaseSettings::instance().hasRule(phaseEncounterId, spell.spell_id);
+            const char* phaseLabel = isTrigger ? L("context_menu.remove_phase_trigger")
+                                               : L("context_menu.set_phase_trigger");
+            if (ImGui::MenuItem(phaseLabel)) {
+                SpellContextMenu::requestPhaseToggle(spell.spell_id, !isTrigger);
             }
         }
         ImGui::EndPopup();

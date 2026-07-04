@@ -76,6 +76,11 @@ public:
         // Boss phase rules - JSON for flexibility
         std::string phaseSettingsJson;
 
+        // Meter bars use WoW class colors for players whose spec is
+        // known (from COMBATANT_INFO); off falls back to the generated
+        // per-actor colors
+        bool meterClassColors = true;
+
         // Custom model rotations - simple key=value format
         std::string customModelRotationsJson;
 

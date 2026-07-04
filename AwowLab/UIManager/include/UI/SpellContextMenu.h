@@ -86,6 +86,23 @@ public:
     static void setCurrentEncounterId(uint32_t encounterId) { s_currentEncounterId = encounterId; }
 
     /**
+     * Active encounter id (0 when none). Other spell menus (the
+     * breakdown table's row menu) read this to decide whether to offer
+     * the phase-trigger item at all.
+     */
+    static uint32_t getCurrentEncounterId() { return s_currentEncounterId; }
+
+    /**
+     * Queue a phase trigger request from outside the popup itself.
+     * Used by the breakdown table's row context menu so its phase item
+     * funnels through the same owner-side handling as this popup's.
+     */
+    static void requestPhaseToggle(uint32_t spellId, bool add) {
+        s_pendingPhaseRequest = PhaseRequest{spellId, add};
+        s_hasPendingPhaseRequest = true;
+    }
+
+    /**
      * Phase trigger request: mark or unmark a boss spell as a phase
      * boundary for the current encounter.
      */

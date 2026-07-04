@@ -103,3 +103,15 @@ meter.report_tooltip,Copier un résumé d'une ligne à coller dans le chat
 meter.report_copied,Copié !
 
 phases.title,Phases du boss
+phases.kind_cast,Premier lancement de
+phases.kind_time,À
+phases.kind_emote,Emote
+phases.not_this_pull,non atteint dans cet essai
+phases.add_time,Ajouter une division temporelle
+phases.time_hint,m:ss
+phases.emotes_header,Emotes de cet essai
+phases.split_here,Diviser ici
+phases.no_emotes,Aucun emote dans cet essai
+phases.no_rules,Aucune règle de phase pour cette rencontre
+phases.casts_header,Sorts du boss lors de cet essai
+meter.class_colors,Colorer les barres par classe

@@ -1,19 +1,43 @@
 #include "Color/ActorColorGenerator.h"
+#include "Core/UnifiedSettings.h"
+#include "Parser/SpecializationColors.h"
+#include "Parser/WowClass.h"
 #include <cmath>
 #include <functional>
+
+namespace {
+
+// Class coloring is a display preference shared by the main app and the
+// overlay, so it reads straight from the settings cache - every color
+// consumer (meter bars, breakdowns, death recap) follows the toggle
+// without extra wiring.
+bool classColorsEnabled() {
+    return SettingsCache::instance().get().meterClassColors;
+}
+
+} // namespace
 
 ActorColor ActorColorGenerator::getColor(std::string_view guid, [[maybe_unused]] ActorType type, [[maybe_unused]] const UnitFlags& flags) {
     // This method is no longer used for color generation - colors are pre-computed
     // during extraction. This is kept for backwards compatibility but just returns
     // the cached color or gray.
-    auto it = colorCache_.find(guid);
-    if (it != colorCache_.end()) {
-        return it->second;
-    }
-    return ActorColor{0.5f, 0.5f, 0.5f}; // Gray fallback
+    return getCachedColor(guid);
 }
 
 ActorColor ActorColorGenerator::getCachedColor(std::string_view guid) const {
+    // Class-color mode: players whose spec is known (COMBATANT_INFO)
+    // take their WoW class color; everything else keeps the cached or
+    // generated color. Specs the color table doesn't recognize fall
+    // through to the cache too.
+    if (classColorsEnabled() && !specIdCache_.empty()) {
+        auto specIt = specIdCache_.find(guid);
+        if (specIt != specIdCache_.end() &&
+            parser::getClassFromSpecId(specIt->second) != parser::WowClass::Unknown) {
+            parser::ClassColor classColor = parser::getColorFromSpecId(specIt->second);
+            return ActorColor{classColor.rf(), classColor.gf(), classColor.bf()};
+        }
+    }
+
     auto it = colorCache_.find(guid);
     if (it != colorCache_.end()) {
         return it->second;

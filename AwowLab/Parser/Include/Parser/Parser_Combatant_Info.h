@@ -129,6 +129,57 @@ namespace parser {
             return getClassFromSpecId(val) != WowClass::Unknown;
         }
 
+        // Locate the spec id and talent-array token without touching the
+        // arrays themselves. Fuzzy matching: scan tokens 25-30 for a valid
+        // spec ID value followed shortly by a '['-token (the talent array);
+        // this handles variations between WoW versions (different stat
+        // field counts). Falls back to the fixed per-version positions.
+        // Returns {specId, specIdIndex, talentIndex}; specIdIndex stays 0
+        // when only the fixed-position fallback matched.
+        struct SpecIdLocation {
+            uint16_t spec_id = 0;
+            size_t spec_index = 0;
+            size_t talent_index = 0;
+        };
+        static SpecIdLocation find_spec_id(const std::vector<std::string_view>& tokens) {
+            SpecIdLocation loc;
+
+            for (size_t i = 25; i < (std::min)(tokens.size(), size_t(35)); ++i) {
+                uint16_t testVal = 0;
+                auto result = std::from_chars(tokens[i].data(),
+                                              tokens[i].data() + tokens[i].size(),
+                                              testVal);
+
+                if (result.ec == std::errc{} && looks_like_spec_id(testVal)) {
+                    // Found a valid spec ID! Check if next non-empty token is talent array
+                    for (size_t j = i + 1; j < (std::min)(tokens.size(), i + 5); ++j) {
+                        if (!tokens[j].empty() && tokens[j][0] == '[') {
+                            // Confirmed: this is spec ID, next is talent array
+                            loc.spec_index = i;
+                            loc.talent_index = j;
+                            loc.spec_id = testVal;
+                            break;
+                        }
+                    }
+                    if (loc.spec_index > 0) break;
+                }
+            }
+
+            // If fuzzy matching failed, fall back to fixed positions
+            if (loc.spec_index == 0) {
+                // Try 12.0 position first, then 11.x
+                bool is12x = (tokens.size() >= 29);
+                size_t specIdIndex = is12x ? TOKEN_SPEC_ID_12X : TOKEN_SPEC_ID_11X;
+                loc.talent_index = is12x ? TOKEN_TALENTS_12X : TOKEN_TALENTS_11X;
+
+                std::from_chars(tokens[specIdIndex].data(),
+                                tokens[specIdIndex].data() + tokens[specIdIndex].size(),
+                                loc.spec_id);
+            }
+
+            return loc;
+        }
+
         // Parse all relevant combatant info
         static CombatantInfoData parse_and_return(const std::vector<std::string_view>& tokens) {
             CombatantInfoData data;
@@ -141,44 +192,11 @@ namespace parser {
 
             data.player_guid = tokens[TOKEN_PLAYER_GUID];
 
-            // Fuzzy matching: Find spec ID by scanning tokens 25-30 for a valid spec ID value
-            // This handles variations between WoW versions (different stat field counts)
-            size_t specIdIndex = 0;
-            size_t talentIndex = 0;
-
-            // Scan tokens in the expected range for spec ID
-            for (size_t i = 25; i < (std::min)(tokens.size(), size_t(35)); ++i) {
-                uint16_t testVal = 0;
-                auto result = std::from_chars(tokens[i].data(),
-                                              tokens[i].data() + tokens[i].size(),
-                                              testVal);
-
-                if (result.ec == std::errc{} && looks_like_spec_id(testVal)) {
-                    // Found a valid spec ID! Check if next non-empty token is talent array
-                    for (size_t j = i + 1; j < (std::min)(tokens.size(), i + 5); ++j) {
-                        if (!tokens[j].empty() && tokens[j][0] == '[') {
-                            // Confirmed: this is spec ID, next is talent array
-                            specIdIndex = i;
-                            talentIndex = j;
-                            data.spec_id = testVal;
-                            break;
-                        }
-                    }
-                    if (specIdIndex > 0) break;
-                }
-            }
-
-            // If fuzzy matching failed, fall back to fixed positions
-            if (specIdIndex == 0) {
-                // Try 12.0 position first, then 11.x
-                bool is12x = (tokens.size() >= 29);
-                specIdIndex = is12x ? TOKEN_SPEC_ID_12X : TOKEN_SPEC_ID_11X;
-                talentIndex = is12x ? TOKEN_TALENTS_12X : TOKEN_TALENTS_11X;
-
-                std::from_chars(tokens[specIdIndex].data(),
-                               tokens[specIdIndex].data() + tokens[specIdIndex].size(),
-                               data.spec_id);
-            }
+            // Spec id + talent array position (fuzzy scan with fixed
+            // fallback; see find_spec_id)
+            SpecIdLocation loc = find_spec_id(tokens);
+            data.spec_id = loc.spec_id;
+            size_t talentIndex = loc.talent_index;
 
             // Parse haste values (these positions are stable across versions)
             std::from_chars(tokens[TOKEN_HASTE_MELEE].data(),
@@ -226,9 +244,14 @@ namespace parser {
             return data;
         }
 
-        // Legacy method for backwards compatibility
+        // Spec id only - skips the haste fields and the talent/equipment
+        // arrays entirely. The live overlay path uses this per player at
+        // encounter start.
         static uint16_t extract_spec_id(const std::vector<std::string_view>& tokens) {
-            return parse_and_return(tokens).spec_id;
+            if (tokens.size() < minimum_token_count()) {
+                return 0;
+            }
+            return find_spec_id(tokens).spec_id;
         }
 
         static std::string_view extract_player_guid(const std::vector<std::string_view>& tokens) {

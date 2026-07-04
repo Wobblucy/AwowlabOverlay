@@ -43,6 +43,7 @@ add_library(UIMeterCore STATIC
     src/UI/Panels/Combat/UIMeterPanel_Breakdowns.cpp
     src/UI/Panels/Combat/UIMeterPanel_Views.cpp
     src/UI/Panels/Settings/UIMobWeightPanel.cpp
+    src/UI/Panels/Settings/UIPhaseEditorPanel.cpp
     src/UI/SpellContextMenu.cpp
     src/UI/SpellGroupSettings.cpp
     src/UI/SpellLinkOpener.cpp

@@ -10,6 +10,7 @@
 #include "UI/Panels/Combat/UIActorBreakdownPanel.h"
 #include "UI/Panels/Combat/UIAvoidanceBreakdownPanel.h"
 #include "UI/Panels/Settings/UIMobWeightPanel.h"
+#include "UI/Panels/Settings/UIPhaseEditorPanel.h"
 #include "UI/Overlay/UIOverlayControls.h"
 #include "UI/Overlay/UIStalenessIndicator.h"
 #include "Color/ActorColorGenerator.h"
@@ -74,6 +75,7 @@ private:
     std::unique_ptr<UIActorBreakdownPanel> breakdownPanel_;
     std::unique_ptr<UIAvoidanceBreakdownPanel> avoidanceBreakdownPanel_;
     std::unique_ptr<UIMobWeightPanel> mobWeightPanel_;
+    std::unique_ptr<UIPhaseEditorPanel> phaseEditorPanel_;
     std::unique_ptr<UIOverlayControls> controls_;
     std::unique_ptr<UIStalenessIndicator> staleness_;
 
@@ -114,6 +116,31 @@ private:
     // Cached snapshot - only updated when log data changes (via onDataUpdate callback)
     LiveLogSession::Snapshot cachedSnapshot_;
     mutable std::mutex snapshotMutex_;  // Protects cachedSnapshot_
+
+    // Persistent player-spec store for class-colored meter bars. The
+    // color generator keys on string_view, so the backing GUID strings
+    // have to outlive it - this map owns them. Player specs don't
+    // change, so it only grows (bounded by raid size) and is never
+    // cleared mid-session. syncSpecColors() copies fresh spec ids out
+    // of the snapshot into it and feeds string_views into colorGen_.
+    std::unordered_map<std::string, uint16_t> specIdStore_;
+    void syncSpecColors();
+
+    // Rebuild the meter's phase list for the currently selected boss
+    // segment, using the shared resolver over the live capture. No-op
+    // (and hides the phase UI) for segments without an encounter id.
+    void updatePhases();
+
+    // Assemble the phase editor's plain-data input from the live
+    // capture for the selected boss segment.
+    PhaseEditorData buildPhaseEditorData();
+
+    // Encounter id + pull window of the segment currently shown.
+    // Cached each frame so the phase UI and the breakdown menu's
+    // "starts a new phase here" agree on which encounter they edit.
+    uint32_t currentPhaseEncounterId_ = 0;
+    int32_t currentPullStart_ms_ = 0;
+    int32_t currentPullEnd_ms_ = 0;
 
     // Initialization
     bool initWindow();

@@ -103,3 +103,15 @@ meter.report_tooltip,复制单行摘要以粘贴到聊天框
 meter.report_copied,已复制！
 
 phases.title,首领阶段
+phases.kind_cast,首次施放
+phases.kind_time,在
+phases.kind_emote,表情
+phases.not_this_pull,本次尝试未达到
+phases.add_time,添加时间分段
+phases.time_hint,m:ss
+phases.emotes_header,本次尝试的表情
+phases.split_here,在此分段
+phases.no_emotes,本次尝试没有表情
+phases.no_rules,该首领还没有阶段规则
+phases.casts_header,本次尝试的首领施法
+meter.class_colors,按职业为条形着色

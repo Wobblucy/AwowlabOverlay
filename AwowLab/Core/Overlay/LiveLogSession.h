@@ -22,6 +22,16 @@ class CombatDatabase;
 class DispelDatabase;
 class ResourceDatabase;
 
+// First completed cast of a spell within the loaded data window
+// (current live pull, or the re-parsed historical segment). Phase
+// rules of the "first cast of X" kind resolve against these, and the
+// phase editor lists the hostile ones as candidate split points.
+struct LiveFirstCast {
+    int32_t time_ms = 0;
+    std::string spell_name;
+    bool hostile_source = false;  // boss/add cast (the interesting kind)
+};
+
 // Manages incremental parsing of a growing WoW combat log file.
 // Designed for live overlay mode where the log file is being written by WoW.
 //
@@ -62,6 +72,19 @@ public:
         // Pull history metadata (lightweight - just labels/offsets/times, no combat data)
         // This is safe to copy since PullSegment is small (~80 bytes each)
         std::vector<PullSegment> pullHistory;
+
+        // Phase-rule inputs for the loaded data window: first cast per
+        // spell id and the emote lines seen. Cleared with the rest of
+        // the pull data, so they always describe whatever segment the
+        // meters are showing. Both stay small (distinct spell ids per
+        // pull; emotes capped at kMaxEmotesPerSegment).
+        std::unordered_map<uint32_t, LiveFirstCast> firstCasts;
+        std::vector<EmoteEvent> emotes;
+
+        // Player spec ids from COMBATANT_INFO (fires at every
+        // ENCOUNTER_START / M+ start). Session-lifetime like the name
+        // lookups; drives class-colored meter bars.
+        std::unordered_map<std::string, uint16_t> guidToSpecId;
     };
 
     // Callbacks for UI updates
@@ -191,6 +214,12 @@ public:
     const std::vector<DeathEvent>& getDeathEvents() const { return deathEvents_; }
     const std::vector<AuraEvent>& getAuraEvents() const { return auraEvents_; }
 
+    // Phase-rule inputs (same threading rules; prefer the snapshot
+    // copies from the render thread)
+    const std::unordered_map<uint32_t, LiveFirstCast>& getFirstCasts() const { return firstCasts_; }
+    const std::vector<EmoteEvent>& getEmoteEvents() const { return emoteEvents_; }
+    const std::unordered_map<std::string, uint16_t>& getGuidToSpecIdMap() const { return guidToSpecId_; }
+
     // Get name lookup map (GUID -> name)
     const std::unordered_map<std::string, std::string>& getGuidToNameMap() const { return guidToName_; }
 
@@ -252,6 +281,19 @@ private:
     std::vector<DispelInterruptEvent> dispelEvents_;
     std::vector<DeathEvent> deathEvents_;
     std::vector<AuraEvent> auraEvents_;  // only Broken/BrokenSpell for now
+
+    // Phase-rule inputs for the loaded data window. firstCasts_ keeps
+    // only the earliest completed cast per spell id; emoteEvents_ is
+    // capped at kMaxEmotesPerSegment. Both cleared with the rest of
+    // the pull data in clearLivePullData().
+    static constexpr size_t kMaxEmotesPerSegment = 256;
+    std::unordered_map<uint32_t, LiveFirstCast> firstCasts_;
+    std::vector<EmoteEvent> emoteEvents_;
+
+    // Player GUID -> spec id from COMBATANT_INFO. Session context like
+    // guidToName_ (a player's spec does not stop being true when the
+    // pull ends), so it survives pull boundaries and segment replays.
+    std::unordered_map<std::string, uint16_t> guidToSpecId_;
 
     // Pull tracking
     std::vector<PullSegment> pullHistory_;

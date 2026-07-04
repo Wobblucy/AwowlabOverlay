@@ -103,3 +103,15 @@ meter.report_tooltip,채팅에 붙여넣을 한 줄 요약 복사
 meter.report_copied,복사됨!
 
 phases.title,우두머리 단계
+phases.kind_cast,첫 시전:
+phases.kind_time,시점
+phases.kind_emote,감정 표현
+phases.not_this_pull,이번 시도에서 도달하지 못함
+phases.add_time,시간 분할 추가
+phases.time_hint,m:ss
+phases.emotes_header,이번 시도의 감정 표현
+phases.split_here,여기서 분할
+phases.no_emotes,이번 시도에 감정 표현 없음
+phases.no_rules,이 전투에 대한 페이즈 규칙이 아직 없습니다
+phases.casts_header,이번 시도의 우두머리 시전
+meter.class_colors,직업별로 막대 색상 표시

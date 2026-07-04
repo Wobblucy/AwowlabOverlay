@@ -103,3 +103,15 @@ meter.report_tooltip,Einzeilige Zusammenfassung zum Einfügen in den Chat kopier
 meter.report_copied,Kopiert!
 
 phases.title,Bossphasen
+phases.kind_cast,Erster Einsatz von
+phases.kind_time,Bei
+phases.kind_emote,Emote
+phases.not_this_pull,in diesem Versuch nicht erreicht
+phases.add_time,Zeitpunkt hinzufügen
+phases.time_hint,m:ss
+phases.emotes_header,Emotes in diesem Versuch
+phases.split_here,Hier teilen
+phases.no_emotes,Keine Emotes in diesem Versuch
+phases.no_rules,Noch keine Phasenregeln für diesen Kampf
+phases.casts_header,Boss-Zauber in diesem Versuch
+meter.class_colors,Balken nach Klasse färben

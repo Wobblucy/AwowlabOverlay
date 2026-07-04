@@ -10,9 +10,12 @@
 #include "Parser/Parser_Dispel.h"
 #include "Parser/Parser_Unit.h"
 #include "Parser/Parser_Aura.h"
+#include "Parser/Parser_Cast.h"
+#include "Parser/Parser_Combatant_Info.h"
 #include "Parser/Parser_Support.h"
 #include "Core/StringInterner.h"
 #include "Core/Utils/ColorUtils.h"  // awow::getActorTypeFromGuid
+#include "Database/EmoteText.h"     // awow::emote::emoteTextFromTokens
 
 #include <fstream>
 #include <iostream>
@@ -41,12 +44,15 @@ bool LiveLogSession::attach(const std::filesystem::path& logPath, bool scanExist
     actorMap_.clear();
     guidToName_.clear();
     spellIdToName_.clear();
+    guidToSpecId_.clear();
     encounters_.clear();
     absorbEvents_.clear();
     missedEvents_.clear();
     dispelEvents_.clear();
     deathEvents_.clear();
     auraEvents_.clear();
+    firstCasts_.clear();
+    emoteEvents_.clear();
     pullHistory_.clear();
     currentPull_ = PullSegment{};
     selectedPull_ = nullptr;
@@ -429,6 +435,8 @@ void LiveLogSession::clearLivePullData() {
     dispelEvents_.clear();
     deathEvents_.clear();
     auraEvents_.clear();
+    firstCasts_.clear();
+    emoteEvents_.clear();
 }
 
 void LiveLogSession::appendResourceSnapshot(std::string_view source_guid,
@@ -727,12 +735,15 @@ void LiveLogSession::resetAll() {
     actorMap_.clear();
     guidToName_.clear();
     spellIdToName_.clear();
+    guidToSpecId_.clear();
     encounters_.clear();
     absorbEvents_.clear();
     missedEvents_.clear();
     dispelEvents_.clear();
     deathEvents_.clear();
     auraEvents_.clear();
+    firstCasts_.clear();
+    emoteEvents_.clear();
     pullHistory_.clear();
     petToOwnerFromSummons_.clear();
     currentPull_ = PullSegment{};
@@ -1131,6 +1142,11 @@ void LiveLogSession::updateSnapshot() {
     // Pull history metadata (lightweight - each PullSegment is ~80 bytes)
     // This allows UI to show pull dropdown without expensive ActorMap copies
     snapshot_.pullHistory = pullHistory_;
+
+    // Phase-rule inputs and spec ids (all small; see the member docs)
+    snapshot_.firstCasts = firstCasts_;
+    snapshot_.emotes = emoteEvents_;
+    snapshot_.guidToSpecId = guidToSpecId_;
 }
 
 uint32_t LiveLogSession::resolveOwnerGuidId(std::string_view source_guid,
@@ -1857,6 +1873,64 @@ bool LiveLogSession::parseAndStoreEvent(const std::vector<std::string_view>& tok
                 !data.dest_guid.starts_with("Player-")) {
                 petToOwnerFromSummons_[std::string(data.dest_guid)] =
                     std::string(data.source_guid);
+            }
+        }
+    }
+    // SPELL_CAST_SUCCESS - phase rules of the "first cast of X" kind
+    // resolve against the earliest completed cast of each spell, so
+    // only the first sighting per spell id is kept. The cast-start tag
+    // reads just the base + spell fields, which also covers logs
+    // written without advanced logging enabled.
+    else if (eventType == "SPELL_CAST_SUCCESS") {
+        if (tokens.size() >= parser::EventParser<parser::SpellCastStartTag>::expected_token_count()) {
+            auto data = parser::EventParser<parser::SpellCastStartTag>::parse_and_return(tokens);
+            if (!data.source_guid.empty() && !data.source_name.empty()) {
+                guidToName_.try_emplace(std::string(data.source_guid), std::string(data.source_name));
+            }
+            if (data.spell.spell_id > 0 && !data.spell.spell_name.empty()) {
+                spellIdToName_.try_emplace(data.spell.spell_id, std::string(data.spell.spell_name));
+            }
+            if (data.spell.spell_id > 0) {
+                auto [it, inserted] = firstCasts_.try_emplace(data.spell.spell_id);
+                if (inserted) {
+                    it->second.time_ms = timestamp_ms;
+                    it->second.spell_name = std::string(data.spell.spell_name);
+                    it->second.hostile_source = data.source_flags.isHostile();
+                }
+            }
+        }
+    }
+    // EMOTE - boss speech lines. Phase rules of the "first emote
+    // saying X" kind match against the cleaned text, and the phase
+    // editor lists these as candidate split points. EMOTE lines skip
+    // the usual flag fields (srcGuid at [3], text from [7] on) and
+    // the body is unquoted, so it is rebuilt from the split tokens
+    // exactly like the offline extractor does.
+    else if (eventType == "EMOTE") {
+        if (tokens.size() >= 8 && emoteEvents_.size() < kMaxEmotesPerSegment) {
+            EmoteEvent emote;
+            emote.timestamp_ms = timestamp_ms;
+            emote.source_guid = std::string(tokens[3]);
+            emote.source_name = std::string(tokens[4]);
+            emote.text = awow::emote::emoteTextFromTokens(tokens);
+            if (!emote.text.empty()) {
+                guidToName_.try_emplace(emote.source_guid, emote.source_name);
+                emoteEvents_.push_back(std::move(emote));
+            }
+        }
+    }
+    // COMBATANT_INFO - one line per player at every ENCOUNTER_START
+    // (and M+ start). Only the GUID and spec id matter here; the spec
+    // drives class-colored meter bars. The equipment/talent arrays at
+    // the end of the line are deliberately not parsed.
+    else if (eventType == "COMBATANT_INFO") {
+        if (tokens.size() >= parser::EventParser<parser::CombatantInfoTag>::minimum_token_count()) {
+            std::string_view playerGuid =
+                parser::EventParser<parser::CombatantInfoTag>::extract_player_guid(tokens);
+            uint16_t specId =
+                parser::EventParser<parser::CombatantInfoTag>::extract_spec_id(tokens);
+            if (!playerGuid.empty() && specId > 0) {
+                guidToSpecId_[std::string(playerGuid)] = specId;
             }
         }
     }

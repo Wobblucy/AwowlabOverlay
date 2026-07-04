@@ -69,6 +69,9 @@ std::string UnifiedSettings::serializeToJson(const AllSettings& settings) {
     // Boss phase rules (stored as nested JSON string)
     doc.AddMember("phaseSettingsJson", rapidjson::Value(settings.phaseSettingsJson.c_str(), alloc), alloc);
 
+    // Meter bar coloring
+    doc.AddMember("meterClassColors", settings.meterClassColors, alloc);
+
     // Custom model rotations
     doc.AddMember("customModelRotationsJson", rapidjson::Value(settings.customModelRotationsJson.c_str(), alloc), alloc);
 
@@ -185,6 +188,11 @@ bool UnifiedSettings::deserializeFromJson(const std::string& json, AllSettings& 
         settings.phaseSettingsJson = doc["phaseSettingsJson"].GetString();
     }
 
+    // Meter bar coloring
+    if (doc.HasMember("meterClassColors") && doc["meterClassColors"].IsBool()) {
+        settings.meterClassColors = doc["meterClassColors"].GetBool();
+    }
+
     // Custom model rotations
     if (doc.HasMember("customModelRotationsJson") && doc["customModelRotationsJson"].IsString()) {
         settings.customModelRotationsJson = doc["customModelRotationsJson"].GetString();
@@ -205,7 +213,7 @@ bool UnifiedSettings::deserializeFromJson(const std::string& json, AllSettings& 
         "spellGroupsJson", "spellAssignmentJson", "spellDataVersion",
         "nameplateSettingsJson", "raidFrameConfigJson",
         "bossTimerSettingsJson", "facingIndicatorSettingsJson",
-        "mobWeightSettingsJson", "phaseSettingsJson",
+        "mobWeightSettingsJson", "phaseSettingsJson", "meterClassColors",
         "customModelRotationsJson", "overlayLogsFolder",
     };
 

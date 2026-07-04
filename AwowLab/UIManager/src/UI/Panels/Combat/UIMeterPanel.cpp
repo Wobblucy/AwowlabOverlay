@@ -5,6 +5,7 @@
 #include "Core/NumberFormatter.h"
 #include "Core/UIUtils.h"
 #include "Core/LocalizationManager.h"
+#include "Core/UnifiedSettings.h"
 #include "CombatDatabase.h"
 #include "DeathDatabase.h"
 #include "ResourceDatabase.h"
@@ -128,6 +129,8 @@ bool UIMeterPanel::render(
             break;
     }
 
+    renderMeterOptionsMenu();
+
     ImGui::End();
     return visible_;
 }
@@ -235,6 +238,18 @@ void UIMeterPanel::renderEmbeddedContent(
     filterEndTime_ms_ = filterEndTime_ms;
     currentSpellNameFallback_ = spellNameFallback;
 
+    // A selected phase narrows the segment window the caller passed
+    // in. Re-applied every frame because the assignment above resets
+    // the filter to the full segment.
+    if (showPhaseControls_ && selectedPhase_ >= 0 &&
+        selectedPhase_ < static_cast<int>(phases_.size())) {
+        const auto& phase = phases_[selectedPhase_];
+        // The views treat 0 as "no filter", so nudge a phase starting
+        // at the log origin to 1ms
+        filterStartTime_ms_ = (phase.start_ms > 0) ? phase.start_ms : 1;
+        filterEndTime_ms_ = phase.end_ms;
+    }
+
     // Compact per-panel view selector at the top of the embedded content
     // so users can switch this meter's view without touching the shared
     // overlay header. Each panel keeps its own view_type in config_.
@@ -266,6 +281,13 @@ void UIMeterPanel::renderEmbeddedContent(
         int newIdx = currentIdx;
         if (awlui::Combo(comboId.c_str(), &newIdx, labels, kNumViews)) {
             config_.view_type = kAllViews[newIdx];
+        }
+
+        // Phase selector + editor button on their own row - only for
+        // boss segments (the owner flips showPhaseControls_ off when
+        // the segment has no encounter id)
+        if (showPhaseControls_) {
+            renderPhaseControls();
         }
 
         // Remind the user when mob weighting is shaping the numbers -
@@ -326,6 +348,8 @@ void UIMeterPanel::renderEmbeddedContent(
             renderEnemyHealingView(combatDb, colorGen, guidToName, currentTime_ms, iconLoader, combatGuidToName);
             break;
     }
+
+    renderMeterOptionsMenu();
 }
 
 // Meter category for grouping
@@ -572,9 +596,16 @@ void UIMeterPanel::renderTimeModeSelector(
         config_.time_mode = static_cast<MeterTimeMode>(currentTimeMode);
     }
 
+    ImGui::SameLine();
+    renderPhaseControls();
+
+    ImGui::SameLine();
+    renderReportButton(guidToName, combatGuidToName);
+}
+
+void UIMeterPanel::renderPhaseControls() {
     // Opens the phase editor panel. Lives outside the phases_ check so
     // encounters without any rules yet can still reach the editor.
-    ImGui::SameLine();
     ImGui::PushID(instanceId_);
     if (awlui::IconButton("phase_editor", "+")) {
         phaseEditorRequested_ = true;
@@ -613,9 +644,26 @@ void UIMeterPanel::renderTimeModeSelector(
             }
         }
     }
+}
 
-    ImGui::SameLine();
-    renderReportButton(guidToName, combatGuidToName);
+void UIMeterPanel::renderMeterOptionsMenu() {
+    // Right-click on empty meter space (not on a bar or control) opens
+    // the display options. Shared by the windowed panels and the
+    // overlay's embedded path so both apps expose the same options.
+    std::string popupId = "MeterOptions" + std::to_string(instanceId_);
+    if (ImGui::BeginPopupContextWindow(popupId.c_str(),
+            ImGuiPopupFlags_MouseButtonRight | ImGuiPopupFlags_NoOpenOverItems)) {
+        auto& cache = SettingsCache::instance();
+        bool classColors = cache.get().meterClassColors;
+        if (awlui::Checkbox(L("meter.class_colors"), &classColors)) {
+            cache.get().meterClassColors = classColors;
+            cache.markDirty();
+            // Write through immediately so the main app and overlay
+            // stay in agreement even on an abrupt close
+            cache.flush();
+        }
+        ImGui::EndPopup();
+    }
 }
 
 void UIMeterPanel::setPhases(std::vector<MeterPhase> phases) {

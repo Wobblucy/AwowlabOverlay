@@ -161,6 +161,12 @@ public:
     // selection and clears any phase time filter that was active.
     void setPhases(std::vector<MeterPhase> phases);
 
+    // Show the phase selector + editor button in the embedded
+    // (overlay) path. The overlay flips this per segment: phases only
+    // make sense on boss pulls, so it stays hidden for trash/unknown
+    // segments. The windowed path always shows the controls.
+    void setShowPhaseControls(bool show) { showPhaseControls_ = show; }
+
     // True once after the "+" button next to the phase combo was
     // clicked; the owner polls this to open the phase editor panel
     bool consumePhaseEditorRequest() {
@@ -209,6 +215,10 @@ private:
     std::vector<MeterPhase> phases_;
     int selectedPhase_ = -1;
 
+    // Embedded-path visibility for the phase selector + editor button
+    // (see setShowPhaseControls)
+    bool showPhaseControls_ = false;
+
     // Raised by the "+" button next to the phase combo; the window
     // manager consumes it and opens the phase editor
     bool phaseEditorRequested_ = false;
@@ -246,6 +256,14 @@ private:
 
     // Render helpers
     void renderTabBar();
+    // Phase editor "+" button plus the phase filter combo (combo only
+    // when the current pull has resolved phases). Shared between the
+    // windowed time-mode row and the embedded overlay header.
+    void renderPhaseControls();
+    // Right-click menu on empty meter space with display options
+    // (class-color toggle). Shared by the windowed and embedded paths
+    // so both apps expose the same options.
+    void renderMeterOptionsMenu();
     // Time mode combo + phase filter + report-to-clipboard button.
     // Takes the name maps so the report line can resolve actor names.
     void renderTimeModeSelector(

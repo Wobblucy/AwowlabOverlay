@@ -2,13 +2,17 @@
 #include "ClientLocale.h"
 #include "Core/UnifiedSettings.h"
 #include "Core/MobWeightSettings.h"
+#include "Core/PhaseSettings.h"
+#include "Core/PhaseResolver.h"
 #include "Core/LocalizationManager.h"
 #include "UI/AwlUI/Widgets.h"
+#include "UI/SpellContextMenu.h"
 #include <imgui.h>
 #include <GLFW/glfw3.h>
 #include <iostream>
 #include <cstring>
 #include <algorithm>
+#include <optional>
 #include <atomic>
 #include <chrono>
 
@@ -76,6 +80,7 @@ OverlayApplication::OverlayApplication() {
     breakdownPanel_ = std::make_unique<UIActorBreakdownPanel>();
     avoidanceBreakdownPanel_ = std::make_unique<UIAvoidanceBreakdownPanel>();
     mobWeightPanel_ = std::make_unique<UIMobWeightPanel>();
+    phaseEditorPanel_ = std::make_unique<UIPhaseEditorPanel>();
     controls_ = std::make_unique<UIOverlayControls>();
     staleness_ = std::make_unique<UIStalenessIndicator>();
 }
@@ -429,6 +434,9 @@ void OverlayApplication::updateModalAutoGrow() {
     if (mobWeightPanel_ && mobWeightPanel_->isVisible()) {
         want(mobWeightPanel_->getLastMeasuredSize(), 540, 500);
     }
+    if (phaseEditorPanel_ && phaseEditorPanel_->isVisible()) {
+        want(phaseEditorPanel_->getLastMeasuredSize(), 560, 500);
+    }
 
     bool wantsBig = (wantW > 0);
 
@@ -694,6 +702,12 @@ void OverlayApplication::renderUI() {
         ImGui::SameLine();  // put the panel's view combo on the same row
     }
 
+    // Refresh class-color spec ids and the selected segment's phase
+    // list before the meter renders. Both read the snapshot under their
+    // own locks, so they're safe outside the ActorMap lock below.
+    syncSpecColors();
+    updatePhases();
+
     // Meter panel content (embedded, no separate window)
     if (stats_ && logManager_) {
         auto* session = logManager_->getSession();
@@ -937,6 +951,44 @@ void OverlayApplication::renderUI() {
         }
     }
 
+    // Boss phase editor - the meter's "+" button toggles it. Only
+    // reachable for boss segments (the phase controls are hidden
+    // otherwise, so the button can't be clicked).
+    if (meterPanel_ && phaseEditorPanel_) {
+        if (meterPanel_->consumePhaseEditorRequest()) {
+            phaseEditorPanel_->toggleVisible();
+        }
+    }
+
+    // "Starts a new phase here" from the breakdown table's row menu
+    // funnels through SpellContextMenu just like the main app. Apply
+    // it to the current boss encounter and persist.
+    if (SpellContextMenu::hasPendingPhaseRequest()) {
+        auto phaseRequest = SpellContextMenu::consumePhaseRequest();
+        if (currentPhaseEncounterId_ != 0 && phaseRequest.spellId != 0) {
+            if (phaseRequest.add) {
+                PhaseSettings::instance().addRule(currentPhaseEncounterId_, phaseRequest.spellId);
+            } else {
+                PhaseSettings::instance().removeRule(currentPhaseEncounterId_, phaseRequest.spellId);
+            }
+            auto& cache = SettingsCache::instance();
+            cache.get().phaseSettingsJson = PhaseSettings::instance().toJson();
+            cache.markDirty();
+            cache.flush();
+        }
+    }
+
+    if (phaseEditorPanel_ && phaseEditorPanel_->isVisible() && stats_) {
+        PhaseEditorData editorData = buildPhaseEditorData();
+        phaseEditorPanel_->render(editorData);
+        if (phaseEditorPanel_->consumeRulesChanged()) {
+            // Edits are already saved by the panel; write through so the
+            // main app sees them and rebuild happens next frame via
+            // updatePhases()
+            SettingsCache::instance().flush();
+        }
+    }
+
     // Drag the overlay from any empty spot, not just the thin strip up
     // top - during the initial scan the strip is the only handle and
     // everyone misses it, which reads as a frozen window. Runs after
@@ -994,6 +1046,152 @@ void OverlayApplication::applyClientLanguage() {
     }
 }
 
+void OverlayApplication::syncSpecColors() {
+    // Copy any new player specs out of the snapshot into the persistent
+    // store, then hand the store's stable string_views to the color
+    // generator. Doing this every frame is cheap (a handful of players)
+    // and idempotent; cacheSpecId ignores repeats.
+    std::unordered_map<std::string, uint16_t> specs;
+    {
+        std::lock_guard<std::mutex> lock(snapshotMutex_);
+        specs = cachedSnapshot_.guidToSpecId;
+    }
+    for (const auto& [guid, specId] : specs) {
+        auto [it, inserted] = specIdStore_.try_emplace(guid, specId);
+        if (inserted || it->second != specId) {
+            it->second = specId;
+        }
+        colorGen_->cacheSpecId(std::string_view(it->first), it->second);
+    }
+}
+
+void OverlayApplication::updatePhases() {
+    if (!meterPanel_) return;
+
+    // Resolve the selected segment's encounter id and pull window.
+    // Phases only make sense on boss pulls (a segment carrying an
+    // ENCOUNTER_START id); trash / M+ trash segments hide the phase UI.
+    PullSegment selected;
+    bool haveSegment = false;
+    {
+        std::lock_guard<std::mutex> lock(snapshotMutex_);
+        if (selectedSegment_ == SEGMENT_CURRENT) {
+            selected = cachedSnapshot_.currentPull;
+            haveSegment = true;
+        } else if (selectedSegment_ < cachedSnapshot_.pullHistory.size()) {
+            selected = cachedSnapshot_.pullHistory[selectedSegment_];
+            haveSegment = true;
+        }
+    }
+
+    uint32_t encounterId = (haveSegment && selected.isEncounter) ? selected.encounterId : 0;
+    currentPhaseEncounterId_ = encounterId;
+    // The breakdown context menu's "starts a new phase here" reads the
+    // encounter id from here.
+    SpellContextMenu::setCurrentEncounterId(encounterId);
+
+    if (encounterId == 0) {
+        meterPanel_->setShowPhaseControls(false);
+        meterPanel_->setPhases({});
+        return;
+    }
+    meterPanel_->setShowPhaseControls(true);
+
+    // The meter window the overlay filters is on the same clock the
+    // live capture uses (log-relative for the current pull, segment-
+    // relative for a re-parsed historical pull). getTimeRange gives
+    // that window for the active view mode.
+    auto [startTime, endTime] = stats_->getTimeRange(viewMode_);
+    currentPullStart_ms_ = startTime;
+    currentPullEnd_ms_ = (endTime == INT32_MAX)
+        ? (stats_->getCombatDatabase() ? stats_->getCombatDatabase()->getMaxTimestamp() : startTime)
+        : endTime;
+
+    const auto* rules = PhaseSettings::instance().rulesFor(encounterId);
+    if (!rules) {
+        meterPanel_->setPhases({});
+        return;
+    }
+
+    // Live capture: first casts by spell id, emotes by cleaned text.
+    std::unordered_map<uint32_t, LiveFirstCast> firstCasts;
+    std::vector<EmoteEvent> emotes;
+    {
+        std::lock_guard<std::mutex> lock(snapshotMutex_);
+        firstCasts = cachedSnapshot_.firstCasts;
+        emotes = cachedSnapshot_.emotes;
+    }
+
+    phase::RuleInputs inputs;
+    inputs.pullStart_ms = currentPullStart_ms_;
+    inputs.pullEnd_ms = currentPullEnd_ms_;
+    inputs.firstCastTime = [&firstCasts](uint32_t spellId) -> std::optional<int32_t> {
+        auto it = firstCasts.find(spellId);
+        if (it != firstCasts.end()) return it->second.time_ms;
+        return std::nullopt;
+    };
+    inputs.firstEmoteTime = [&emotes](std::string_view text) -> std::optional<int32_t> {
+        for (const auto& e : emotes) {
+            if (e.text == text) return e.timestamp_ms;
+        }
+        return std::nullopt;
+    };
+
+    auto resolved = phase::resolvePhases(*rules, inputs);
+    std::vector<MeterPhase> phases;
+    phases.reserve(resolved.size());
+    for (auto& p : resolved) {
+        phases.push_back(MeterPhase{std::move(p.label), p.start_ms, p.end_ms});
+    }
+    meterPanel_->setPhases(std::move(phases));
+}
+
+PhaseEditorData OverlayApplication::buildPhaseEditorData() {
+    PhaseEditorData data;
+    data.encounterId = currentPhaseEncounterId_;
+    data.ruleInputs.pullStart_ms = currentPullStart_ms_;
+    data.ruleInputs.pullEnd_ms = currentPullEnd_ms_;
+
+    std::unordered_map<uint32_t, LiveFirstCast> firstCasts;
+    std::vector<EmoteEvent> emotes;
+    {
+        std::lock_guard<std::mutex> lock(snapshotMutex_);
+        firstCasts = cachedSnapshot_.firstCasts;
+        emotes = cachedSnapshot_.emotes;
+    }
+
+    // Resolvers so the "-> 2:30 / not reached" column works
+    data.ruleInputs.firstCastTime = [firstCasts](uint32_t spellId) -> std::optional<int32_t> {
+        auto it = firstCasts.find(spellId);
+        if (it != firstCasts.end()) return it->second.time_ms;
+        return std::nullopt;
+    };
+    data.ruleInputs.firstEmoteTime = [emotes](std::string_view text) -> std::optional<int32_t> {
+        for (const auto& e : emotes) {
+            if (e.text == text) return e.timestamp_ms;
+        }
+        return std::nullopt;
+    };
+
+    // Distinct hostile casts, time-sorted, as candidate split points
+    for (const auto& [spellId, cast] : firstCasts) {
+        if (cast.hostile_source) {
+            data.casts.push_back({spellId, cast.time_ms, cast.spell_name});
+        }
+    }
+    std::sort(data.casts.begin(), data.casts.end(),
+              [](const PhaseEditorData::CastRow& a, const PhaseEditorData::CastRow& b) {
+                  return a.time_ms < b.time_ms;
+              });
+
+    // Emote rows, time-sorted (the snapshot copy is already sorted)
+    for (const auto& e : emotes) {
+        data.emotes.push_back({e.timestamp_ms, e.source_name, e.text});
+    }
+
+    return data;
+}
+
 void OverlayApplication::loadSettings() {
     // Mob weighting is configured in the main app; the overlay reads
     // the saved weights so live meters discount the same mobs. The
@@ -1001,6 +1199,12 @@ void OverlayApplication::loadSettings() {
     // to happen once at launch.
     MobWeightSettings::instance().fromJson(
         SettingsCache::instance().get().mobWeightSettingsJson);
+
+    // Boss phase rules are per-encounter and shared with the main app
+    // through the same settings file, so the overlay loads them the
+    // same way. Edits flush back through SettingsCache::flush().
+    PhaseSettings::instance().fromJson(
+        SettingsCache::instance().get().phaseSettingsJson);
 }
 
 void OverlayApplication::saveSettings() {
