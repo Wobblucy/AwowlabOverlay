@@ -391,15 +391,21 @@ void LiveLogSession::handleChallengeModeStart(const std::vector<std::string_view
     inMythicPlus_ = true;
     currentKeystoneLevel_ = data.keystoneLevel;
 
+    // Remember where the run began so CHALLENGE_MODE_END can build the
+    // "Overall - <dungeon>" segment spanning the whole key.
+    challengeModeStartOffset_ = lastParsedOffset_;
+    challengeModeStartTime_ms_ = timestamp_ms;
+
     // Notify UI of dungeon start
     if (onDungeonStart_) {
         onDungeonStart_(currentDungeonRunId_, currentDungeonName_, currentKeystoneLevel_);
     }
 }
 
-void LiveLogSession::handleChallengeModeEnd(const std::vector<std::string_view>& /*tokens*/) {
-    inMythicPlus_ = false;
-    currentKeystoneLevel_ = 0;
+void LiveLogSession::handleChallengeModeEnd(const std::vector<std::string_view>& tokens) {
+    int32_t timestamp_ms = (tokens.size() >= 2)
+        ? static_cast<int32_t>(parseTimestampMs(tokens[0], tokens[1]) - logStartTimestamp_)
+        : lastCombatEventTime_ms_;
 
     // End any current pull
     if (combatState_ != CombatState::Idle) {
@@ -407,6 +413,37 @@ void LiveLogSession::handleChallengeModeEnd(const std::vector<std::string_view>&
         endCurrentPull(lastCombatEventTime_ms_, lastParsedOffset_);
         combatState_ = CombatState::Idle;
     }
+
+    // Add the "Overall - <dungeon>" segment spanning the whole key, the
+    // same one the offline scan builds. Without this the completed run
+    // has no aggregate entry in the live segment list. Its window runs
+    // from the CHALLENGE_MODE_START to now, over the shared combat db.
+    // Gate on inMythicPlus_ (the real "we're in a key" signal), not the
+    // start byte offset - that's 0 for a key whose START landed in the
+    // very first poll batch, since lastParsedOffset_ only advances after
+    // the batch is processed.
+    if (inMythicPlus_) {
+        PullSegment overall;
+        overall.label = "Overall - " + currentDungeonName_;
+        overall.segmentType = PullSegmentType::DungeonOverall;
+        overall.startByteOffset = challengeModeStartOffset_;
+        overall.endByteOffset = lastParsedOffset_;
+        overall.startTime_ms = challengeModeStartTime_ms_;
+        overall.endTime_ms = timestamp_ms;
+        overall.dungeonRunId = currentDungeonRunId_;
+        overall.inMythicPlus = true;
+        overall.keystoneLevel = currentKeystoneLevel_;
+        overall.pullNumber = nextPullNumber_++;
+        pullHistory_.push_back(overall);
+
+        if (onPullEnd_) {
+            onPullEnd_(overall);
+        }
+    }
+
+    inMythicPlus_ = false;
+    currentKeystoneLevel_ = 0;
+    challengeModeStartOffset_ = 0;
 }
 
 void LiveLogSession::startNewPull(int32_t timestamp_ms, size_t byteOffset,

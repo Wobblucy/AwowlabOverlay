@@ -286,9 +286,23 @@ std::pair<int32_t, int32_t> LiveCombatStats::getTimeRange(StatsViewMode mode) co
             //    meter shows the run rather than blanking. The instant
             //    the boss's own records land we snap to just the boss
             //    window.
-            const PullSegment& pull = snapshot.currentPull;
+            const PullSegment* pull = &snapshot.currentPull;
 
-            if (pull.isEncounter && combatDb_) {
+            // Don't flip to a brand-new segment for the first few seconds.
+            // Every boss pull and trash block opens a fresh segment, and
+            // snapping the live meter to it the instant it starts makes the
+            // numbers blink to near-empty. While the active segment is
+            // younger than this, keep showing the previous one; the switch
+            // happens once the new segment has some substance.
+            constexpr int32_t kMinSegmentAgeMs = 3000;
+            if (combatDb_ && !snapshot.pullHistory.empty()) {
+                int32_t segAge = combatDb_->getMaxTimestamp() - pull->startTime_ms;
+                if (segAge >= 0 && segAge < kMinSegmentAgeMs) {
+                    return getPullTimeRange(&snapshot.pullHistory.back());
+                }
+            }
+
+            if (pull->isEncounter && combatDb_) {
                 // "Has the boss data flushed?" Parsing is timestamp
                 // ordered, so the combatDb's max timestamp only reaches
                 // the boss's [start,end] window once the kill burst has
@@ -297,7 +311,7 @@ std::pair<int32_t, int32_t> LiveCombatStats::getTimeRange(StatsViewMode mode) co
                 // use the session fallback below. A cheap, robust check
                 // that needs no per-record scan.
                 bool bossDataFlushed =
-                    combatDb_->getMaxTimestamp() >= pull.startTime_ms;
+                    combatDb_->getMaxTimestamp() >= pull->startTime_ms;
                 if (!bossDataFlushed) {
                     // Session-so-far: everything currently loaded. An
                     // empty combatDb reports min as UINT32_MAX (-1 as
@@ -316,7 +330,7 @@ std::pair<int32_t, int32_t> LiveCombatStats::getTimeRange(StatsViewMode mode) co
                 // event aren't truncated (each render clamps further).
             }
 
-            return getPullTimeRange(&pull);
+            return getPullTimeRange(pull);
         }
 
         case StatsViewMode::HistoricalPull: {
