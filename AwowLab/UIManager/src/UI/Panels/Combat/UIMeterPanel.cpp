@@ -283,6 +283,13 @@ void UIMeterPanel::renderEmbeddedContent(
             config_.view_type = kAllViews[newIdx];
         }
 
+        // Copy-to-clipboard report, next to the view selector. The windowed
+        // path draws this after the time-mode selector; the overlay uses this
+        // embedded path, which has no time-mode selector, so draw it here so
+        // the button exists in the overlay too.
+        ImGui::SameLine();
+        renderReportButton(guidToName, combatGuidToName);
+
         // Phase selector + editor button on their own row - only for
         // boss segments (the owner flips showPhaseControls_ off when
         // the segment has no encounter id). The overlay draws these in
