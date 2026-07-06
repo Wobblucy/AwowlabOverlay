@@ -35,10 +35,16 @@ void LiveCombatStats::detachSession() {
 void LiveCombatStats::refresh() {
     if (!session_) return;
 
-    // Rebuild combat database from session's ActorMap. Hand it the
-    // SPELL_SUMMON lineage so a player's summoned Creature-/Vehicle- pets
-    // (a Death Knight's army, etc.) merge into the player even when their
-    // damage events carry no owner in the advanced combat log block.
+    // Rebuild every database from the session's DISPLAYED bundle - the
+    // live combat data while viewing Current, or the re-parsed historical
+    // bundle while a past segment / M+ Overall is open. getActorMap and
+    // the event-stream getters resolve to whichever bundle the view state
+    // selects, so this same code path serves both live and history.
+    //
+    // Hand the combat db the SPELL_SUMMON lineage so a player's summoned
+    // Creature-/Vehicle- pets (a Death Knight's army, etc.) merge into the
+    // player even when their damage events carry no owner in the advanced
+    // combat log block.
     auto summonPetToOwner = session_->getSummonPetToOwnerMap();
     combatDb_->loadFromActorMap(&session_->getActorMap(), &summonPetToOwner);
 

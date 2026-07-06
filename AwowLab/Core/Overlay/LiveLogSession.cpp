@@ -41,16 +41,14 @@ bool LiveLogSession::attach(const std::filesystem::path& logPath, bool scanExist
     pendingPartialLine_.clear();
 
     // Reset state
-    actorMap_.clear();
+    liveBundle_.clear();
+    historicalBundle_.clear();
+    displayHistorical_ = false;
+    viewState_ = SessionViewState::Live;
     guidToName_.clear();
     spellIdToName_.clear();
     guidToSpecId_.clear();
     encounters_.clear();
-    absorbEvents_.clear();
-    missedEvents_.clear();
-    dispelEvents_.clear();
-    deathEvents_.clear();
-    auraEvents_.clear();
     firstCasts_.clear();
     emoteEvents_.clear();
     pullHistory_.clear();
@@ -99,10 +97,11 @@ size_t LiveLogSession::getCurrentFileSize() const {
 bool LiveLogSession::poll() {
     if (!isAttached()) return false;
 
-    // Don't accumulate new data while viewing historical segment
-    if (viewState_ != SessionViewState::Live) {
-        return false;
-    }
+    // The live parse ALWAYS runs, even while the user is viewing a past
+    // segment. Historical viewing reads a separate bundle
+    // (historicalBundle_), so the live bundle can keep accumulating in
+    // the background - returning to Current then shows the up-to-date
+    // segment and no pull is ever dropped.
 
     // Check current file size
     size_t currentSize = getCurrentFileSize();
@@ -242,7 +241,7 @@ size_t LiveLogSession::processLines(const std::vector<std::vector<std::string_vi
         // lives in parseAndStoreEvent so that parseSegment / parseSegments
         // (historical replay) can reuse it without duplicating the
         // dispatch chain.
-        bool isCombatEvent = parseAndStoreEvent(tokens, eventType, timestamp_ms);
+        bool isCombatEvent = parseAndStoreEvent(liveBundle_, tokens, eventType, timestamp_ms);
         // Update pull tracking if this was a combat event
         if (isCombatEvent) {
             handleCombatEvent(timestamp_ms, currentByteOffset);
@@ -483,17 +482,13 @@ void LiveLogSession::startNewPull(int32_t timestamp_ms, size_t byteOffset,
 }
 
 void LiveLogSession::clearLivePullData() {
-    actorMap_.clear();
-    absorbEvents_.clear();
-    missedEvents_.clear();
-    dispelEvents_.clear();
-    deathEvents_.clear();
-    auraEvents_.clear();
+    liveBundle_.clear();
     firstCasts_.clear();
     emoteEvents_.clear();
 }
 
-void LiveLogSession::appendResourceSnapshot(std::string_view source_guid,
+void LiveLogSession::appendResourceSnapshot(CombatDataBundle& target,
+                                            std::string_view source_guid,
                                             std::string_view dest_guid,
                                             const AdvancedUnitInfo& info,
                                             int32_t timestamp_ms) {
@@ -501,15 +496,15 @@ void LiveLogSession::appendResourceSnapshot(std::string_view source_guid,
     // GUID matches info_guid. On damage events that's typically the
     // target; on heal events it can be source or target depending on
     // the spell. Route to the matching actor.
-    std::string_view target;
+    std::string_view actorGuid;
     if (info.info_guid == source_guid) {
-        target = source_guid;
+        actorGuid = source_guid;
     } else if (info.info_guid == dest_guid) {
-        target = dest_guid;
+        actorGuid = dest_guid;
     } else {
         return;  // synthetic or unknown - nothing useful to store
     }
-    if (target.empty()) return;
+    if (actorGuid.empty()) return;
     if (info.max_hp == 0) return;  // no advanced logging enabled
 
     ResourceStatusRecord record{};
@@ -523,9 +518,9 @@ void LiveLogSession::appendResourceSnapshot(std::string_view source_guid,
     // resource_status_table must stay sorted by timestamp so
     // ResourceDatabase's binary-search lookup works. Live poll is
     // append-only in chronological order so a straight push_back
-    // keeps the invariant. Segment replay clears the table first
-    // via clearLivePullData().
-    actorMap_[guidInterner().intern(target)].resource_status_table.push_back(record);
+    // keeps the invariant. Segment replay builds into a fresh bundle
+    // so the table always starts empty.
+    target.actorMap[guidInterner().intern(actorGuid)].resource_status_table.push_back(record);
 }
 
 void LiveLogSession::endCurrentPull(int32_t timestamp_ms, size_t byteOffset) {
@@ -571,110 +566,97 @@ void LiveLogSession::selectCurrentPull() {
     selectedPull_ = nullptr;
 }
 
+bool LiveLogSession::parseByteRangeInto(CombatDataBundle& target,
+                                        size_t startByteOffset, size_t endByteOffset,
+                                        int64_t segmentAbsoluteStart) {
+    if (startByteOffset >= endByteOffset) return false;
+
+    std::ifstream file(logPath_, std::ios::binary);
+    if (!file) return false;
+
+    file.seekg(static_cast<std::streamoff>(startByteOffset));
+    if (!file) return false;
+
+    size_t bytesToRead = endByteOffset - startByteOffset;
+    std::string buffer(bytesToRead, '\0');
+    file.read(buffer.data(), static_cast<std::streamsize>(bytesToRead));
+    size_t bytesRead = static_cast<size_t>(file.gcount());
+    if (bytesRead == 0) return false;
+
+    std::string fullBuffer(buffer.data(), bytesRead);
+
+    // Drop the partial line at the start (unless we're at file start) and
+    // the partial line at the end - the byte window can slice mid-line.
+    if (startByteOffset > 0) {
+        size_t firstNewline = fullBuffer.find('\n');
+        if (firstNewline != std::string::npos) {
+            fullBuffer = fullBuffer.substr(firstNewline + 1);
+        }
+    }
+    size_t lastNewline = fullBuffer.rfind('\n');
+    if (lastNewline != std::string::npos && lastNewline < fullBuffer.size() - 1) {
+        fullBuffer = fullBuffer.substr(0, lastNewline + 1);
+    }
+    if (fullBuffer.empty()) return false;
+
+    tokenized_segment tokenizer;
+    auto result = tokenizer.tokenize(fullBuffer.c_str(), fullBuffer.size());
+    if (result.empty()) return false;
+
+    // Historical replay is display-only: no combat-state or pull tracking,
+    // just extract the events into the target bundle.
+    for (const auto& tokens : result) {
+        if (tokens.size() < 3) continue;
+        std::string_view eventType = tokens[2];
+        int32_t timestamp_ms = static_cast<int32_t>(
+            parseTimestampMs(tokens[0], tokens[1]) - segmentAbsoluteStart);
+        (void)parseAndStoreEvent(target, tokens, eventType, timestamp_ms);
+    }
+
+    return true;
+}
+
 bool LiveLogSession::parseSegment(const PullSegment& segment) {
     if (!isAttached()) return false;
     if (segment.startByteOffset >= segment.endByteOffset) return false;
 
-    // Set flag to prevent UI iteration during modification
+    // Historical parse. Only parsingInProgress_ is raised for it (drives
+    // the spinner); the live poll must keep running untouched, so we do
+    // NOT take actorMapMutex_ for the parse itself. Build into a scratch
+    // bundle under historicalMutex_, then publish it and flip the display
+    // under actorMapMutex_ so the render thread reads a consistent pair.
     parsingInProgress_.store(true);
 
+    // Rebase timestamps to the segment start so the drill-down chart,
+    // headline duration and every derived per-second metric reads
+    // relative to when THIS pull began instead of when the whole log
+    // started. Matches the offline OutputWriter, which anchors on the
+    // segment's ENCOUNTER_START. logStartTimestamp_ is set once during
+    // the initial scan and never mutated afterward, so reading it here
+    // off the worker thread is safe.
+    const int64_t segmentAbsoluteStart = logStartTimestamp_ + segment.startTime_ms;
+
+    CombatDataBundle scratch;
     {
+        std::lock_guard<std::mutex> histLock(historicalMutex_);
+        parseByteRangeInto(scratch, segment.startByteOffset,
+                           segment.endByteOffset, segmentAbsoluteStart);
+    }
+
+    {
+        // Publish: move the finished bundle in and point the display at
+        // it. From here the historical bundle is immutable until the next
+        // select or returnToLiveMode, so the render thread can read it
+        // under this same lock without racing the live poll.
         std::lock_guard<std::timed_mutex> lock(actorMapMutex_);
-
-        // Clear current ActorMap AND all per-event streams before
-        // re-parsing. Otherwise the meters would show the segment's
-        // damage/healing (correct) but keep dispels/deaths/etc from
-        // whatever the user was watching before (stale).
-        clearLivePullData();
-        // Keep guidToName_ and spellIdToName_ - they accumulate names for display
-
-        // Open file and seek to segment start
-        std::ifstream file(logPath_, std::ios::binary);
-        if (!file) {
-            parsingInProgress_.store(false);
-            return false;
-        }
-
-        file.seekg(static_cast<std::streamoff>(segment.startByteOffset));
-        if (!file) {
-            parsingInProgress_.store(false);
-            return false;
-        }
-
-        // Read bytes from startByteOffset to endByteOffset
-        size_t bytesToRead = segment.endByteOffset - segment.startByteOffset;
-        std::string buffer(bytesToRead, '\0');
-        file.read(buffer.data(), static_cast<std::streamsize>(bytesToRead));
-        size_t bytesRead = static_cast<size_t>(file.gcount());
-
-        if (bytesRead == 0) {
-            parsingInProgress_.store(false);
-            return false;
-        }
-
-        // Handle partial lines at boundaries
-        std::string fullBuffer(buffer.data(), bytesRead);
-
-        // Skip partial line at start (if not at file start)
-        if (segment.startByteOffset > 0) {
-            size_t firstNewline = fullBuffer.find('\n');
-            if (firstNewline != std::string::npos) {
-                fullBuffer = fullBuffer.substr(firstNewline + 1);
-            }
-        }
-
-        // Skip partial line at end
-        size_t lastNewline = fullBuffer.rfind('\n');
-        if (lastNewline != std::string::npos && lastNewline < fullBuffer.size() - 1) {
-            fullBuffer = fullBuffer.substr(0, lastNewline + 1);
-        }
-
-        if (fullBuffer.empty()) {
-            parsingInProgress_.store(false);
-            return false;
-        }
-
-        // Tokenize and parse the segment
-        tokenized_segment tokenizer;
-        auto result = tokenizer.tokenize(fullBuffer.c_str(), fullBuffer.size());
-
-        if (!result.empty()) {
-            // Rebase timestamps to the segment start so the drill-down
-            // chart, headline duration and every derived per-second
-            // metric reads relative to when THIS pull began instead of
-            // when the whole log started. Without the rebase the chart
-            // X-axis grew to (log_start -> segment_end), which for a
-            // late raid pull looked like a 2h+ window even though the
-            // fight lasted a few minutes. Matches the offline
-            // OutputWriter, which sets logStartTimestamp to the
-            // ENCOUNTER_START of the segment being extracted.
-            const int64_t original_log_start = logStartTimestamp_;
-            const int64_t segment_absolute_start =
-                original_log_start + segment.startTime_ms;
-
-            // Process lines but DON'T update combat state or create new pulls
-            // We're just extracting data for display
-            for (const auto& tokens : result) {
-                if (tokens.size() < 3) continue;
-
-                std::string_view eventType = tokens[2];
-                int32_t timestamp_ms = static_cast<int32_t>(
-                    parseTimestampMs(tokens[0], tokens[1]) - segment_absolute_start);
-
-                (void)parseAndStoreEvent(tokens, eventType, timestamp_ms);
-            }
-        }
-
-        // Update view state
+        historicalBundle_ = std::move(scratch);
+        displayHistorical_ = true;
         viewState_ = SessionViewState::Historical;
-
-        // Update snapshot for UI
         updateSnapshot();
     }
 
     parsingInProgress_.store(false);
 
-    // Notify data update
     if (onDataUpdate_) {
         onDataUpdate_();
     }
@@ -686,74 +668,29 @@ bool LiveLogSession::parseSegments(const std::vector<PullSegment>& segments) {
     if (!isAttached()) return false;
     if (segments.empty()) return false;
 
-    // Set flag to prevent UI iteration during modification
     parsingInProgress_.store(true);
+
+    // The Overall aggregation keeps log-relative timestamps (no per-pull
+    // rebase), so subtract logStartTimestamp_ for every segment.
+    CombatDataBundle scratch;
+    {
+        std::lock_guard<std::mutex> histLock(historicalMutex_);
+        for (const auto& segment : segments) {
+            parseByteRangeInto(scratch, segment.startByteOffset,
+                               segment.endByteOffset, logStartTimestamp_);
+        }
+    }
 
     {
         std::lock_guard<std::timed_mutex> lock(actorMapMutex_);
-
-        // Clear ActorMap and all per-event streams before accumulating
-        // the aggregated view (M+ Overall etc).
-        clearLivePullData();
-
-        // Parse each segment and accumulate data
-        for (const auto& segment : segments) {
-            if (segment.startByteOffset >= segment.endByteOffset) continue;
-
-            std::ifstream file(logPath_, std::ios::binary);
-            if (!file) continue;
-
-            file.seekg(static_cast<std::streamoff>(segment.startByteOffset));
-            if (!file) continue;
-
-            size_t bytesToRead = segment.endByteOffset - segment.startByteOffset;
-            std::string buffer(bytesToRead, '\0');
-            file.read(buffer.data(), static_cast<std::streamsize>(bytesToRead));
-            size_t bytesRead = static_cast<size_t>(file.gcount());
-
-            if (bytesRead == 0) continue;
-
-            // Find first complete line (skip partial line at start if any)
-            std::string fullBuffer(buffer.data(), bytesRead);
-            size_t firstNewline = fullBuffer.find('\n');
-            if (firstNewline != std::string::npos && segment.startByteOffset > 0) {
-                // Skip the partial first line unless we're at file start
-                fullBuffer = fullBuffer.substr(firstNewline + 1);
-            }
-
-            // Find last complete line (skip partial line at end)
-            size_t lastNewline = fullBuffer.rfind('\n');
-            if (lastNewline != std::string::npos && lastNewline < fullBuffer.size() - 1) {
-                fullBuffer = fullBuffer.substr(0, lastNewline + 1);
-            }
-
-            if (fullBuffer.empty()) continue;
-
-            tokenized_segment tokenizer;
-            auto result = tokenizer.tokenize(fullBuffer.c_str(), fullBuffer.size());
-
-            // Process tokens (same logic as parseSegment but without clearing)
-            for (const auto& tokens : result) {
-                if (tokens.size() < 3) continue;
-
-                std::string_view eventType = tokens[2];
-                int32_t timestamp_ms = static_cast<int32_t>(
-                    parseTimestampMs(tokens[0], tokens[1]) - logStartTimestamp_);
-
-                (void)parseAndStoreEvent(tokens, eventType, timestamp_ms);
-            }
-        }
-
-        // Update view state
+        historicalBundle_ = std::move(scratch);
+        displayHistorical_ = true;
         viewState_ = SessionViewState::Overall;
-
-        // Update snapshot for UI
         updateSnapshot();
     }
 
     parsingInProgress_.store(false);
 
-    // Notify data update
     if (onDataUpdate_) {
         onDataUpdate_();
     }
@@ -767,19 +704,19 @@ void LiveLogSession::returnToLiveMode() {
     {
         std::lock_guard<std::timed_mutex> lock(actorMapMutex_);
 
-        // Clear the historical view we were showing (ActorMap and all
-        // per-event streams) before hopping back to live.
-        clearLivePullData();
-
-        // Reset to live mode
+        // Point the display back at the live bundle. The live poll never
+        // stopped, so it's already current - no re-parse, and crucially
+        // NO skip-to-EOF: lastParsedOffset_ stays where the poll left it
+        // so nothing written while viewing history is dropped.
+        displayHistorical_ = false;
         viewState_ = SessionViewState::Live;
 
-        // Skip to current file position (don't re-parse old data)
-        // The next poll() will continue from current position
-        lastParsedOffset_ = getCurrentFileSize();
-        pendingPartialLine_.clear();
+        // Free the historical bundle's memory now that it's off-screen.
+        // clear() + swap-with-empty releases the ActorMap's buckets and
+        // the event vectors' capacity so two-map mode costs nothing while
+        // viewing live.
+        historicalBundle_ = CombatDataBundle{};
 
-        // Update snapshot
         updateSnapshot();
     }
 
@@ -791,16 +728,14 @@ void LiveLogSession::returnToLiveMode() {
 }
 
 void LiveLogSession::resetAll() {
-    actorMap_.clear();
+    liveBundle_.clear();
+    historicalBundle_.clear();
+    displayHistorical_ = false;
+    viewState_ = SessionViewState::Live;
     guidToName_.clear();
     spellIdToName_.clear();
     guidToSpecId_.clear();
     encounters_.clear();
-    absorbEvents_.clear();
-    missedEvents_.clear();
-    dispelEvents_.clear();
-    deathEvents_.clear();
-    auraEvents_.clear();
     firstCasts_.clear();
     emoteEvents_.clear();
     pullHistory_.clear();
@@ -1240,7 +1175,8 @@ LiveLogSession::getSummonPetToOwnerMap() const {
     return out;
 }
 
-bool LiveLogSession::parseAndStoreEvent(const std::vector<std::string_view>& tokens,
+bool LiveLogSession::parseAndStoreEvent(CombatDataBundle& target,
+                                        const std::vector<std::string_view>& tokens,
                                         std::string_view eventType,
                                         int32_t timestamp_ms) {
     bool isCombatEvent = false;
@@ -1281,8 +1217,8 @@ bool LiveLogSession::parseAndStoreEvent(const std::vector<std::string_view>& tok
                 if (data.source_flags.isFriendly() && data.dest_flags.isFriendly()) {
                     record.flags |= static_cast<uint16_t>(CombatEventFlags::FriendlyFire);
                 }
-                actorMap_[guidInterner().intern(data.source_guid)].damage_dealt_table.push_back(record);
-                appendResourceSnapshot(data.source_guid, data.dest_guid,
+                target.actorMap[guidInterner().intern(data.source_guid)].damage_dealt_table.push_back(record);
+                appendResourceSnapshot(target, data.source_guid, data.dest_guid,
                                        data.advanced_info, timestamp_ms);
             }
         } else if (eventType == "SPELL_PERIODIC_DAMAGE") {
@@ -1316,8 +1252,8 @@ bool LiveLogSession::parseAndStoreEvent(const std::vector<std::string_view>& tok
                 if (data.source_flags.isFriendly() && data.dest_flags.isFriendly()) {
                     record.flags |= static_cast<uint16_t>(CombatEventFlags::FriendlyFire);
                 }
-                actorMap_[guidInterner().intern(data.source_guid)].damage_dealt_table.push_back(record);
-                appendResourceSnapshot(data.source_guid, data.dest_guid,
+                target.actorMap[guidInterner().intern(data.source_guid)].damage_dealt_table.push_back(record);
+                appendResourceSnapshot(target, data.source_guid, data.dest_guid,
                                        data.advanced_info, timestamp_ms);
             }
         } else if (eventType == "SWING_DAMAGE_LANDED") {
@@ -1348,8 +1284,8 @@ bool LiveLogSession::parseAndStoreEvent(const std::vector<std::string_view>& tok
                 if (data.source_flags.isFriendly() && data.dest_flags.isFriendly()) {
                     record.flags |= static_cast<uint16_t>(CombatEventFlags::FriendlyFire);
                 }
-                actorMap_[guidInterner().intern(data.source_guid)].damage_dealt_table.push_back(record);
-                appendResourceSnapshot(data.source_guid, data.dest_guid,
+                target.actorMap[guidInterner().intern(data.source_guid)].damage_dealt_table.push_back(record);
+                appendResourceSnapshot(target, data.source_guid, data.dest_guid,
                                        data.advanced_info, timestamp_ms);
             }
         }
@@ -1383,8 +1319,8 @@ bool LiveLogSession::parseAndStoreEvent(const std::vector<std::string_view>& tok
                 record.event_type = CombatEventType::HealingDone;
                 if (data.critical) record.flags |= static_cast<uint16_t>(CombatEventFlags::Critical);
                 if (data.overhealing > 0) record.flags |= static_cast<uint16_t>(CombatEventFlags::Overheal);
-                actorMap_[guidInterner().intern(data.source_guid)].healing_done_table.push_back(record);
-                appendResourceSnapshot(data.source_guid, data.dest_guid,
+                target.actorMap[guidInterner().intern(data.source_guid)].healing_done_table.push_back(record);
+                appendResourceSnapshot(target, data.source_guid, data.dest_guid,
                                        data.advanced_info, timestamp_ms);
             }
         } else if (eventType == "SPELL_PERIODIC_HEAL") {
@@ -1413,8 +1349,8 @@ bool LiveLogSession::parseAndStoreEvent(const std::vector<std::string_view>& tok
                 record.flags |= static_cast<uint16_t>(CombatEventFlags::Periodic);
                 if (data.critical) record.flags |= static_cast<uint16_t>(CombatEventFlags::Critical);
                 if (data.overhealing > 0) record.flags |= static_cast<uint16_t>(CombatEventFlags::Overheal);
-                actorMap_[guidInterner().intern(data.source_guid)].healing_done_table.push_back(record);
-                appendResourceSnapshot(data.source_guid, data.dest_guid,
+                target.actorMap[guidInterner().intern(data.source_guid)].healing_done_table.push_back(record);
+                appendResourceSnapshot(target, data.source_guid, data.dest_guid,
                                        data.advanced_info, timestamp_ms);
             }
         }
@@ -1476,8 +1412,8 @@ bool LiveLogSession::parseAndStoreEvent(const std::vector<std::string_view>& tok
             const uint8_t school = static_cast<uint8_t>(
                 isSwing ? data.spell.spell_school : data.damage_school);
             if (!data.source_guid.empty()) {
-                auto srcIt = actorMap_.find(guidInterner().find(data.source_guid));
-                if (srcIt != actorMap_.end()) {
+                auto srcIt = target.actorMap.find(guidInterner().find(data.source_guid));
+                if (srcIt != target.actorMap.end()) {
                     auto& parent_table = srcIt->second.damage_dealt_table;
                     for (auto rit = parent_table.rbegin();
                          rit != parent_table.rend();
@@ -1520,7 +1456,7 @@ bool LiveLogSession::parseAndStoreEvent(const std::vector<std::string_view>& tok
             if (isSwing)    record.flags |= static_cast<uint16_t>(CombatEventFlags::IsSwing);
             if (data.critical) record.flags |= static_cast<uint16_t>(CombatEventFlags::Critical);
 
-            actorMap_[guidInterner().intern(data.supporter_guid)].damage_dealt_table.push_back(record);
+            target.actorMap[guidInterner().intern(data.supporter_guid)].damage_dealt_table.push_back(record);
         };
 
         if (eventType == "SPELL_DAMAGE_SUPPORT") {
@@ -1567,8 +1503,8 @@ bool LiveLogSession::parseAndStoreEvent(const std::vector<std::string_view>& tok
             // amplified healer's parent heal record. Skip already-flagged
             // Support records so shadows never match shadows.
             if (!data.source_guid.empty()) {
-                auto srcIt = actorMap_.find(guidInterner().find(data.source_guid));
-                if (srcIt != actorMap_.end()) {
+                auto srcIt = target.actorMap.find(guidInterner().find(data.source_guid));
+                if (srcIt != target.actorMap.end()) {
                     auto& parent_table = srcIt->second.healing_done_table;
                     for (auto rit = parent_table.rbegin();
                          rit != parent_table.rend();
@@ -1598,7 +1534,7 @@ bool LiveLogSession::parseAndStoreEvent(const std::vector<std::string_view>& tok
             if (data.critical) record.flags |= static_cast<uint16_t>(CombatEventFlags::Critical);
             if (data.overhealing > 0) record.flags |= static_cast<uint16_t>(CombatEventFlags::Overheal);
 
-            actorMap_[guidInterner().intern(data.supporter_guid)].healing_done_table.push_back(record);
+            target.actorMap[guidInterner().intern(data.supporter_guid)].healing_done_table.push_back(record);
         };
 
         if (eventType == "SPELL_HEAL_SUPPORT") {
@@ -1644,7 +1580,7 @@ bool LiveLogSession::parseAndStoreEvent(const std::vector<std::string_view>& tok
             ev.timestamp_ms = timestamp_ms;
             ev.absorbed_amount = data.amount;
             ev.total_damage = 0;
-            absorbEvents_.push_back(std::move(ev));
+            target.absorbEvents.push_back(std::move(ev));
         }
     }
     else if (eventType == "SPELL_ABSORBED_SUPPORT") {
@@ -1678,7 +1614,7 @@ bool LiveLogSession::parseAndStoreEvent(const std::vector<std::string_view>& tok
             ev.absorbed_amount = data.amount;
             ev.total_damage = 0;
             ev.supporter_guid = std::string(data.supporter_guid);
-            absorbEvents_.push_back(std::move(ev));
+            target.absorbEvents.push_back(std::move(ev));
         }
     }
     // MISSED / AVOIDANCE
@@ -1710,7 +1646,7 @@ bool LiveLogSession::parseAndStoreEvent(const std::vector<std::string_view>& tok
             ev.is_offhand = data.is_off_hand;
             ev.is_critical = data.critical;
             ev.is_periodic = (eventType == "SPELL_PERIODIC_MISSED");
-            missedEvents_.push_back(std::move(ev));
+            target.missedEvents.push_back(std::move(ev));
         }
     }
     else if (eventType == "SWING_MISSED") {
@@ -1737,7 +1673,7 @@ bool LiveLogSession::parseAndStoreEvent(const std::vector<std::string_view>& tok
             ev.is_offhand = data.is_off_hand;
             ev.is_critical = data.critical;
             ev.is_periodic = false;
-            missedEvents_.push_back(std::move(ev));
+            target.missedEvents.push_back(std::move(ev));
         }
     }
     // DISPEL / INTERRUPT / STOLEN
@@ -1767,7 +1703,7 @@ bool LiveLogSession::parseAndStoreEvent(const std::vector<std::string_view>& tok
             ev.extra_spell_school = data.extra_spell_school;
             ev.event_type = DispelInterruptEvent::EventType::Dispel;
             ev.aura_type = data.aura_type;
-            dispelEvents_.push_back(std::move(ev));
+            target.dispelEvents.push_back(std::move(ev));
         }
     }
     else if (eventType == "SPELL_INTERRUPT") {
@@ -1796,7 +1732,7 @@ bool LiveLogSession::parseAndStoreEvent(const std::vector<std::string_view>& tok
             ev.extra_spell_school = data.extra_spell_school;
             ev.event_type = DispelInterruptEvent::EventType::Interrupt;
             ev.aura_type = AuraType::Unknown;
-            dispelEvents_.push_back(std::move(ev));
+            target.dispelEvents.push_back(std::move(ev));
         }
     }
     else if (eventType == "SPELL_STOLEN") {
@@ -1825,7 +1761,7 @@ bool LiveLogSession::parseAndStoreEvent(const std::vector<std::string_view>& tok
             ev.extra_spell_school = data.extra_spell_school;
             ev.event_type = DispelInterruptEvent::EventType::Stolen;
             ev.aura_type = data.aura_type;
-            dispelEvents_.push_back(std::move(ev));
+            target.dispelEvents.push_back(std::move(ev));
         }
     }
     // DEATHS
@@ -1843,7 +1779,7 @@ bool LiveLogSession::parseAndStoreEvent(const std::vector<std::string_view>& tok
             ev.timestamp_ms = timestamp_ms;
             ev.killing_spell_id = 0;
             ev.killing_spell_name = "";
-            deathEvents_.push_back(std::move(ev));
+            target.deathEvents.push_back(std::move(ev));
         }
     }
     else if (eventType == "SPELL_INSTAKILL") {
@@ -1862,7 +1798,7 @@ bool LiveLogSession::parseAndStoreEvent(const std::vector<std::string_view>& tok
             ev.timestamp_ms = timestamp_ms;
             ev.killing_spell_id = data.spell_id;
             ev.killing_spell_name = std::string(data.spell_name);
-            deathEvents_.push_back(std::move(ev));
+            target.deathEvents.push_back(std::move(ev));
         }
     }
     // AURA BROKEN (for CC Breaks meter)
@@ -1887,7 +1823,7 @@ bool LiveLogSession::parseAndStoreEvent(const std::vector<std::string_view>& tok
             aura.timestamp_ms = timestamp_ms;
             aura.event_type = AuraEventType::Broken;
             aura.stacks = 1;
-            auraEvents_.push_back(std::move(aura));
+            target.auraEvents.push_back(std::move(aura));
         }
     }
     else if (eventType == "SPELL_AURA_BROKEN_SPELL") {
@@ -1913,7 +1849,7 @@ bool LiveLogSession::parseAndStoreEvent(const std::vector<std::string_view>& tok
             aura.stacks = 1;
             aura.breaking_spell_id = data.extra_spell_id;
             aura.breaking_spell_name = std::string(data.extra_spell_name);
-            auraEvents_.push_back(std::move(aura));
+            target.auraEvents.push_back(std::move(aura));
         }
     }
     // SPELL_SUMMON is the authoritative source of pet -> owner ties

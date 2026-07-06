@@ -147,11 +147,20 @@ void LiveLogManager::pollLoop() {
             lastLogPath = *currentLog;
         }
 
-        // Check for new writes or forced poll
-        bool shouldPoll = watcher_.hasNewWrite() || pollRequested_.exchange(false);
+        // Poll every interval unconditionally, not only when the directory
+        // watcher signalled a write. ReadDirectoryChangesW coalesces and can
+        // drop notifications under load, so relying on it as the sole trigger
+        // occasionally stranded data that was already on disk - the meter sat
+        // still while the log grew. poll()'s own size check (current size vs.
+        // last parsed offset) is the cheap no-op guard when nothing is new,
+        // so an unconditional poll costs nothing on an idle tick and can't
+        // miss a write. The watcher signal / forced poll just wakes us early
+        // for snappier updates. We still consume hasNewWrite() so the early
+        // wake in the sleep loop below stays responsive.
+        watcher_.hasNewWrite();
+        pollRequested_.exchange(false);
 
-        if (shouldPoll && session_ && session_->isAttached()) {
-            // Poll for new data
+        if (session_ && session_->isAttached()) {
             session_->poll();
         }
 

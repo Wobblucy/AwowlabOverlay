@@ -32,6 +32,31 @@ struct LiveFirstCast {
     bool hostile_source = false;  // boss/add cast (the interesting kind)
 };
 
+// The combat data for one displayed window: the actor stats plus every
+// per-event stream the meter panels read. The session keeps two of
+// these - one the live poll thread keeps filling as the log grows, and
+// one the history worker rebuilds when the user opens a past segment -
+// so viewing history never has to pause or discard the live parse.
+// Only the display-facing combat data lives here; session-wide lookups
+// (names, spell ids, specs, pet lineage) stay shared on the session.
+struct CombatDataBundle {
+    ActorMap actorMap;
+    std::vector<AbsorbEvent> absorbEvents;
+    std::vector<MissedEvent> missedEvents;
+    std::vector<DispelInterruptEvent> dispelEvents;
+    std::vector<DeathEvent> deathEvents;
+    std::vector<AuraEvent> auraEvents;  // only Broken/BrokenSpell for now
+
+    void clear() {
+        actorMap.clear();
+        absorbEvents.clear();
+        missedEvents.clear();
+        dispelEvents.clear();
+        deathEvents.clear();
+        auraEvents.clear();
+    }
+};
+
 // Manages incremental parsing of a growing WoW combat log file.
 // Designed for live overlay mode where the log file is being written by WoW.
 //
@@ -198,28 +223,35 @@ public:
     // poll). Never call from the render thread.
     std::unique_lock<std::timed_mutex> lockActorMap() const;
 
-    // === Legacy Data Access (NOT thread-safe, use getSnapshot() instead) ===
+    // === Displayed Data Access (NOT thread-safe, use getSnapshot() for metadata) ===
+    //
+    // These return whichever combat bundle the UI should currently show:
+    // the live bundle while viewing Current, or the historical bundle
+    // while a past segment / M+ Overall is open. The live poll thread
+    // keeps filling the live bundle the whole time, so returning to
+    // Current is instant and never drops a pull. The history worker only
+    // ever publishes an already-finished historical bundle, so once the
+    // display points at it the bundle is immutable and safe to read under
+    // the same actorMapMutex_ the render thread already holds.
 
-    // Get the accumulated ActorMap (for database queries)
-    const ActorMap& getActorMap() const { return actorMap_; }
+    // Get the displayed ActorMap (live or historical per view state).
+    const ActorMap& getActorMap() const { return displayBundle().actorMap; }
 
     // The pet -> owner lineage learned from SPELL_SUMMON, interned so the
     // CombatDatabase can adopt a player's summoned Creature-/Vehicle- pets
     // (a Death Knight's army, etc.) that the advanced combat log never tags
-    // with an owner. Built on demand from petToOwnerFromSummons_.
+    // with an owner. Built on demand from petToOwnerFromSummons_. Session
+    // context, shared by both bundles.
     std::unordered_map<StringInterner::Id, StringInterner::Id>
     getSummonPetToOwnerMap() const;
 
-    // Absorb events accumulated since attach() or resetAll().
-    // Not thread-safe with concurrent poll(); use tryLockActorMap() to gate iteration.
-    const std::vector<AbsorbEvent>& getAbsorbEvents() const { return absorbEvents_; }
-
-    // Additional per-event streams the meter panels consume. Same
-    // threading rules as getAbsorbEvents. Cleared on attach/resetAll.
-    const std::vector<MissedEvent>& getMissedEvents() const { return missedEvents_; }
-    const std::vector<DispelInterruptEvent>& getDispelEvents() const { return dispelEvents_; }
-    const std::vector<DeathEvent>& getDeathEvents() const { return deathEvents_; }
-    const std::vector<AuraEvent>& getAuraEvents() const { return auraEvents_; }
+    // Displayed per-event streams the meter panels consume. Live or
+    // historical per view state; same threading rules as getActorMap.
+    const std::vector<AbsorbEvent>& getAbsorbEvents() const { return displayBundle().absorbEvents; }
+    const std::vector<MissedEvent>& getMissedEvents() const { return displayBundle().missedEvents; }
+    const std::vector<DispelInterruptEvent>& getDispelEvents() const { return displayBundle().dispelEvents; }
+    const std::vector<DeathEvent>& getDeathEvents() const { return displayBundle().deathEvents; }
+    const std::vector<AuraEvent>& getAuraEvents() const { return displayBundle().auraEvents; }
 
     // Phase-rule inputs (same threading rules; prefer the snapshot
     // copies from the render thread)
@@ -278,16 +310,23 @@ private:
     mutable std::mutex snapshotMutex_;
     Snapshot snapshot_;  // Thread-safe copy for UI access
 
-    // Accumulated data (modified by background poll thread)
-    ActorMap actorMap_;
+    // The live combat bundle: the poll thread keeps filling this as the
+    // log grows, regardless of what the user is currently viewing. It is
+    // the display bundle while viewState_ is Live.
+    CombatDataBundle liveBundle_;
+
+    // The historical combat bundle: rebuilt by the history worker when a
+    // past segment or the M+ Overall is opened. Once published it is
+    // immutable until the next select (or the return to live that frees
+    // it), so the render thread can read it under actorMapMutex_ without
+    // racing the still-running live poll.
+    CombatDataBundle historicalBundle_;
+
+    // Session-wide lookups, shared by both bundles (a name / spell id /
+    // spec does not change between the live view and a replayed segment).
     std::unordered_map<std::string, std::string> guidToName_;
     std::unordered_map<uint32_t, std::string> spellIdToName_;
     std::vector<EncounterSegment> encounters_;
-    std::vector<AbsorbEvent> absorbEvents_;
-    std::vector<MissedEvent> missedEvents_;
-    std::vector<DispelInterruptEvent> dispelEvents_;
-    std::vector<DeathEvent> deathEvents_;
-    std::vector<AuraEvent> auraEvents_;  // only Broken/BrokenSpell for now
 
     // Phase-rule inputs for the loaded data window. firstCasts_ keeps
     // only the earliest completed cast per spell id; emoteEvents_ is
@@ -326,8 +365,19 @@ private:
     bool logStartTimestampSet_ = false;
     std::chrono::milliseconds combatIdleTimeout_{5000};
 
-    // View state for historical/live mode
+    // View state for historical/live mode. Guarded by actorMapMutex_ for
+    // the display switch so the render thread never sees a torn state.
     SessionViewState viewState_ = SessionViewState::Live;
+
+    // True when the display should read historicalBundle_ instead of
+    // liveBundle_. Flipped (with the published historical bundle) under
+    // actorMapMutex_ so the render thread reads a consistent pair.
+    bool displayHistorical_ = false;
+
+    // The combat bundle the UI should read right now.
+    const CombatDataBundle& displayBundle() const {
+        return displayHistorical_ ? historicalBundle_ : liveBundle_;
+    }
 
     // M+ context
     bool inMythicPlus_ = false;
@@ -348,9 +398,20 @@ private:
     DataUpdateCallback onDataUpdate_;
     DungeonStartCallback onDungeonStart_;
 
-    // Thread safety for ActorMap access. Timed so the render thread can
-    // wait out a short parse slice instead of dropping to a spinner.
+    // Thread safety for the LIVE bundle + the display switch. Timed so
+    // the render thread can wait out a short parse slice instead of
+    // dropping to a spinner. The render thread takes this to read the
+    // displayed bundle; the poll thread takes it to append live data and
+    // to flip the display back to live on returnToLiveMode.
     mutable std::timed_mutex actorMapMutex_;
+
+    // Guards the history worker while it rebuilds a scratch historical
+    // bundle. The worker holds only this during the (potentially long)
+    // parse, so the live poll thread is never blocked by a history
+    // select. It then takes actorMapMutex_ briefly to publish the
+    // finished bundle and flip displayHistorical_. Lock ordering when
+    // both are held: actorMapMutex_ first, then historicalMutex_.
+    mutable std::mutex historicalMutex_;
     std::atomic<bool> parsingInProgress_{false};
     std::atomic<bool> segmentScanInProgress_{false};
 
@@ -372,7 +433,8 @@ private:
     // dispel; not deaths/auras/encounter boundaries). No state
     // mutation beyond data storage - callers are responsible for pull
     // tracking, timestamp normalization, encounter boundaries, etc.
-    bool parseAndStoreEvent(const std::vector<std::string_view>& tokens,
+    bool parseAndStoreEvent(CombatDataBundle& target,
+                            const std::vector<std::string_view>& tokens,
                             std::string_view eventType,
                             int32_t timestamp_ms);
 
@@ -390,20 +452,33 @@ private:
     // the events that carry advanced_info in the combat log with HP
     // fields. Silently no-ops when info_guid doesn't match source or
     // dest (skips synthetic entries) or when HP is zero.
-    void appendResourceSnapshot(std::string_view source_guid,
+    void appendResourceSnapshot(CombatDataBundle& target,
+                                std::string_view source_guid,
                                 std::string_view dest_guid,
                                 const struct AdvancedUnitInfo& info,
                                 int32_t timestamp_ms);
 
-    // Clear ActorMap and the per-event vectors. Preserves guidToName_,
-    // spellIdToName_, pullHistory_, encounters_ and the dungeon-run
-    // bookkeeping - only combat data belongs to the current pull, the
-    // rest is session context. Called at every "start of a fresh live
-    // pull" boundary (endCurrentPull) and at every historical
-    // re-parse boundary (parseSegment / parseSegments / return to
-    // live). Not called from scanForSegments which never writes combat
-    // data.
+    // Clear the LIVE bundle (ActorMap + per-event vectors). Preserves
+    // guidToName_, spellIdToName_, pullHistory_, encounters_ and the
+    // dungeon-run bookkeeping - only combat data belongs to the current
+    // pull, the rest is session context. Called at every "start of a
+    // fresh live pull" boundary (endCurrentPull / startNewPull). No
+    // longer touched by the historical re-parse path, which builds into
+    // its own bundle. Not called from scanForSegments which never writes
+    // combat data.
     void clearLivePullData();
+
+    // Read [startByteOffset, endByteOffset) from the log, tokenize it and
+    // feed every line through parseAndStoreEvent into target. Used by
+    // parseSegment / parseSegments to rebuild the historical bundle.
+    // segmentAbsoluteStart is subtracted from each event's epoch time:
+    // pass the segment's absolute start to rebase a single pull to 0
+    // (matching the HistoricalPull ranking window), or logStartTimestamp_
+    // to leave the Overall aggregation log-relative. Returns true if any
+    // lines were parsed.
+    bool parseByteRangeInto(CombatDataBundle& target,
+                            size_t startByteOffset, size_t endByteOffset,
+                            int64_t segmentAbsoluteStart);
     void handleEncounterStart(const std::vector<std::string_view>& tokens, size_t byteOffset);
     void handleEncounterEnd(const std::vector<std::string_view>& tokens, size_t byteOffset);
     void handleChallengeModeStart(const std::vector<std::string_view>& tokens);
