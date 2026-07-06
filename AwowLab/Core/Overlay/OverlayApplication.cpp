@@ -911,12 +911,33 @@ void OverlayApplication::renderUI() {
                         ++runCount;
                     }
 
+                    // A run is "empty" (an abandoned key WoW wrote no combat
+                    // for) when every segment under it is an EmptyRun marker.
+                    bool runIsEmpty = true;
+                    for (size_t k = 0; k < runCount; ++k) {
+                        size_t ci = pullHistory.size() - 1 - (i + k);
+                        if (pullHistory[ci].segmentType != PullSegmentType::EmptyRun) {
+                            runIsEmpty = false;
+                            break;
+                        }
+                    }
+
                     // Group header: "Algeth'ar Academy +12 (12:37)". The run
                     // duration comes from dungeonEndTime_ms (0 while live -> "...").
-                    char header[160];
+                    // An empty run reads "x <dungeon> +N - no log writes" and
+                    // is greyed so it's clearly distinct from a run with combat.
+                    char header[192];
                     int32_t runDur = (head.dungeonEndTime_ms > head.dungeonStartTime_ms)
                         ? head.dungeonEndTime_ms - head.dungeonStartTime_ms : 0;
-                    if (runDur > 0) {
+                    if (runIsEmpty) {
+                        if (head.keystoneLevel > 0) {
+                            snprintf(header, sizeof(header), "x %s +%u - no log writes###run%u",
+                                head.dungeonName.c_str(), head.keystoneLevel, runId);
+                        } else {
+                            snprintf(header, sizeof(header), "x %s - no log writes###run%u",
+                                head.dungeonName.c_str(), runId);
+                        }
+                    } else if (runDur > 0) {
                         int mins = runDur / 60000, secs = (runDur / 1000) % 60;
                         if (head.keystoneLevel > 0) {
                             snprintf(header, sizeof(header), "%s +%u (%d:%02d)###run%u",
@@ -933,9 +954,14 @@ void OverlayApplication::renderUI() {
                             head.dungeonName.c_str(), runId);
                     }
 
-                    // Newest run defaults open so the last pull is one click away.
-                    ImGui::SetNextItemOpen(i == 0, ImGuiCond_Once);
-                    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.4f, 0.8f, 1.0f, 1.0f));
+                    // Newest run defaults open so the last pull is one click
+                    // away - but never auto-open an empty run, there's nothing
+                    // inside worth showing.
+                    ImGui::SetNextItemOpen(i == 0 && !runIsEmpty, ImGuiCond_Once);
+                    ImVec4 headerColor = runIsEmpty
+                        ? ImVec4(0.5f, 0.5f, 0.5f, 1.0f)   // grey: abandoned key
+                        : ImVec4(0.4f, 0.8f, 1.0f, 1.0f);  // blue: real run
+                    ImGui::PushStyleColor(ImGuiCol_Text, headerColor);
                     bool open = ImGui::TreeNode(header);
                     ImGui::PopStyleColor();
                     if (open) {
