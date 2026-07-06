@@ -848,7 +848,7 @@ void OverlayApplication::renderUI() {
                     // that the run happened, not a segment you can open.
                     if (pull.segmentType == PullSegmentType::EmptyRun) {
                         ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.5f, 0.5f, 0.5f, 1.0f));
-                        ImGui::TextDisabled("  (no combat)");
+                        ImGui::TextDisabled("  (no log writes)");
                         ImGui::PopStyleColor();
                         return;
                     }

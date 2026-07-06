@@ -377,10 +377,9 @@ void LiveLogSession::handleChallengeModeStart(const std::vector<std::string_view
     // (earlier Algeth'ar attempts and the like) must stay in the list.
     // Keep guidToName_ and spellIdToName_ too - they're lookup caches
     // that help with name display across pulls.
-    // If the run we're leaving produced no combat (an abandoned key),
-    // leave a placeholder so it still shows as a group. Bounded at this
-    // new START.
-    flushEmptyRunIfNeeded(lastParsedOffset_, timestamp_ms);
+    // Close out the run we're leaving (placeholder if it had no combat,
+    // plus a uniform duration for its header). Bounded at this new START.
+    closeCurrentRun(lastParsedOffset_, timestamp_ms);
 
     encounters_.clear();
     currentPull_ = PullSegment{};
@@ -446,13 +445,9 @@ void LiveLogSession::handleChallengeModeEnd(const std::vector<std::string_view>&
         }
     }
 
-    // Run finished: stamp its end time onto every segment of this run so
-    // the group header reads "Algeth'ar Academy (12:37)".
-    for (auto& seg : pullHistory_) {
-        if (seg.dungeonRunId == currentDungeonRunId_ && seg.inMythicPlus) {
-            seg.dungeonEndTime_ms = timestamp_ms;
-        }
-    }
+    // Run finished at CHALLENGE_MODE_END: stamp the run's duration onto its
+    // segments (the run has an Overall by now, so no placeholder is added).
+    closeCurrentRun(lastParsedOffset_, timestamp_ms);
 
     inMythicPlus_ = false;
     currentKeystoneLevel_ = 0;
@@ -506,33 +501,45 @@ void LiveLogSession::stampGroupInfo(PullSegment& seg) const {
     seg.dungeonStartTime_ms = challengeModeStartTime_ms_;
 }
 
-void LiveLogSession::flushEmptyRunIfNeeded(size_t endOffset, int32_t endTime_ms) {
+void LiveLogSession::closeCurrentRun(size_t endOffset, int32_t endTime_ms) {
     // Only meaningful inside an M+ run.
     if (!inMythicPlus_ || currentDungeonRunId_ == 0) return;
 
-    // Did the current run leave any segment behind? If any pull carries
-    // this run id, it produced combat and needs no placeholder.
+    // Did the current run leave any segment behind?
+    bool hasSegments = false;
     for (const auto& seg : pullHistory_) {
-        if (seg.dungeonRunId == currentDungeonRunId_) return;
+        if (seg.dungeonRunId == currentDungeonRunId_) { hasSegments = true; break; }
     }
 
-    // No segments: this key was started then abandoned. WoW writes no
-    // combat events for that, so add a placeholder so the run still shows
-    // as a group in the selector instead of silently vanishing.
-    PullSegment empty;
-    empty.label = "No combat";
-    empty.segmentType = PullSegmentType::EmptyRun;
-    empty.startByteOffset = challengeModeStartOffset_;
-    empty.endByteOffset = endOffset;
-    empty.startTime_ms = challengeModeStartTime_ms_;
-    empty.endTime_ms = endTime_ms;
-    empty.dungeonRunId = currentDungeonRunId_;
-    empty.inMythicPlus = true;
-    empty.keystoneLevel = currentKeystoneLevel_;
-    empty.pullNumber = nextPullNumber_++;
-    stampGroupInfo(empty);
-    empty.dungeonEndTime_ms = endTime_ms;
-    pullHistory_.push_back(empty);
+    // A key started then abandoned writes no combat, so it has no segments.
+    // Add a placeholder so the run still shows as its own group instead of
+    // silently vanishing.
+    if (!hasSegments) {
+        PullSegment empty;
+        empty.label = "No log writes";
+        empty.segmentType = PullSegmentType::EmptyRun;
+        empty.startByteOffset = challengeModeStartOffset_;
+        empty.endByteOffset = endOffset;
+        empty.startTime_ms = challengeModeStartTime_ms_;
+        empty.endTime_ms = endTime_ms;
+        empty.dungeonRunId = currentDungeonRunId_;
+        empty.inMythicPlus = true;
+        empty.keystoneLevel = currentKeystoneLevel_;
+        empty.pullNumber = nextPullNumber_++;
+        stampGroupInfo(empty);
+        pullHistory_.push_back(empty);
+    }
+
+    // Stamp the run's end time onto every one of its segments so the group
+    // header shows a duration - measured start-of-key to end-of-run - the
+    // same way whether or not the run produced combat. WoW rarely writes
+    // CHALLENGE_MODE_END for a key you leave, so this is driven off the run
+    // boundary (next key start, END, or end of log), not just END.
+    for (auto& seg : pullHistory_) {
+        if (seg.dungeonRunId == currentDungeonRunId_ && seg.inMythicPlus) {
+            seg.dungeonEndTime_ms = endTime_ms;
+        }
+    }
 }
 
 void LiveLogSession::clearLivePullData() {
@@ -988,9 +995,9 @@ void LiveLogSession::scanForSegments() {
                     // (or any) attempts stay in the list. Only reset the
                     // per-run counters and the in-flight pull; the new
                     // dungeonRunId below keeps this run's segments distinct.
-                    // First, if the run we're leaving had no combat (an
-                    // abandoned key), leave a placeholder so it still groups.
-                    flushEmptyRunIfNeeded(absLineStart, timestamp_ms);
+                    // First close out the run we're leaving: placeholder if
+                    // it had no combat, plus a uniform header duration.
+                    closeCurrentRun(absLineStart, timestamp_ms);
                     encounters_.clear();
                     currentPull_ = PullSegment{};
                     currentTrashNumber_ = 0;
@@ -1051,14 +1058,9 @@ void LiveLogSession::scanForSegments() {
                         pullHistory_.push_back(overall);
                     }
 
-                    // The run is over: backfill its end time onto every
-                    // segment of this run so the group header can show a
-                    // duration ("Algeth'ar Academy (12:37)").
-                    for (auto& seg : pullHistory_) {
-                        if (seg.dungeonRunId == currentDungeonRunId_ && seg.inMythicPlus) {
-                            seg.dungeonEndTime_ms = timestamp_ms;
-                        }
-                    }
+                    // Run over at CHALLENGE_MODE_END: stamp the run duration
+                    // onto its segments (it has an Overall, so no placeholder).
+                    closeCurrentRun(absLineEnd + 1, timestamp_ms);
 
                     inMythicPlus_ = false;
                     lastBoundaryOffset = 0;
@@ -1150,10 +1152,11 @@ void LiveLogSession::scanForSegments() {
     // Set offset to everything we consumed so poll() continues from here
     lastParsedOffset_ = chunkBase + buffer.size();
 
-    // If the scan ended inside an M+ run that never produced combat (a key
-    // started then abandoned at the tail of the log), leave a placeholder
-    // so that run still shows as a group.
-    flushEmptyRunIfNeeded(lastParsedOffset_, lastCombatEventTime_ms_);
+    // If the scan ended inside an open M+ run, close it out here (the log
+    // rarely carries CHALLENGE_MODE_END for a key you're still in or left).
+    // A key abandoned at the tail with no combat gets a placeholder; one
+    // with combat gets its duration stamped from the last event seen.
+    closeCurrentRun(lastParsedOffset_, lastCombatEventTime_ms_);
 
     segmentScanInProgress_.store(false);
     parsingInProgress_.store(false);
