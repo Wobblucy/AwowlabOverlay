@@ -377,6 +377,11 @@ void LiveLogSession::handleChallengeModeStart(const std::vector<std::string_view
     // (earlier Algeth'ar attempts and the like) must stay in the list.
     // Keep guidToName_ and spellIdToName_ too - they're lookup caches
     // that help with name display across pulls.
+    // If the run we're leaving produced no combat (an abandoned key),
+    // leave a placeholder so it still shows as a group. Bounded at this
+    // new START.
+    flushEmptyRunIfNeeded(lastParsedOffset_, timestamp_ms);
+
     encounters_.clear();
     currentPull_ = PullSegment{};
     currentTrashNumber_ = 0;
@@ -499,6 +504,35 @@ void LiveLogSession::stampGroupInfo(PullSegment& seg) const {
     if (!seg.inMythicPlus) return;
     seg.dungeonName = currentDungeonName_;
     seg.dungeonStartTime_ms = challengeModeStartTime_ms_;
+}
+
+void LiveLogSession::flushEmptyRunIfNeeded(size_t endOffset, int32_t endTime_ms) {
+    // Only meaningful inside an M+ run.
+    if (!inMythicPlus_ || currentDungeonRunId_ == 0) return;
+
+    // Did the current run leave any segment behind? If any pull carries
+    // this run id, it produced combat and needs no placeholder.
+    for (const auto& seg : pullHistory_) {
+        if (seg.dungeonRunId == currentDungeonRunId_) return;
+    }
+
+    // No segments: this key was started then abandoned. WoW writes no
+    // combat events for that, so add a placeholder so the run still shows
+    // as a group in the selector instead of silently vanishing.
+    PullSegment empty;
+    empty.label = "No combat";
+    empty.segmentType = PullSegmentType::EmptyRun;
+    empty.startByteOffset = challengeModeStartOffset_;
+    empty.endByteOffset = endOffset;
+    empty.startTime_ms = challengeModeStartTime_ms_;
+    empty.endTime_ms = endTime_ms;
+    empty.dungeonRunId = currentDungeonRunId_;
+    empty.inMythicPlus = true;
+    empty.keystoneLevel = currentKeystoneLevel_;
+    empty.pullNumber = nextPullNumber_++;
+    stampGroupInfo(empty);
+    empty.dungeonEndTime_ms = endTime_ms;
+    pullHistory_.push_back(empty);
 }
 
 void LiveLogSession::clearLivePullData() {
@@ -954,6 +988,9 @@ void LiveLogSession::scanForSegments() {
                     // (or any) attempts stay in the list. Only reset the
                     // per-run counters and the in-flight pull; the new
                     // dungeonRunId below keeps this run's segments distinct.
+                    // First, if the run we're leaving had no combat (an
+                    // abandoned key), leave a placeholder so it still groups.
+                    flushEmptyRunIfNeeded(absLineStart, timestamp_ms);
                     encounters_.clear();
                     currentPull_ = PullSegment{};
                     currentTrashNumber_ = 0;
@@ -1112,6 +1149,11 @@ void LiveLogSession::scanForSegments() {
 
     // Set offset to everything we consumed so poll() continues from here
     lastParsedOffset_ = chunkBase + buffer.size();
+
+    // If the scan ended inside an M+ run that never produced combat (a key
+    // started then abandoned at the tail of the log), leave a placeholder
+    // so that run still shows as a group.
+    flushEmptyRunIfNeeded(lastParsedOffset_, lastCombatEventTime_ms_);
 
     segmentScanInProgress_.store(false);
     parsingInProgress_.store(false);

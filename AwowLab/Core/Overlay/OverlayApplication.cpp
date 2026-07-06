@@ -301,7 +301,24 @@ void OverlayApplication::selectNewestSegment() {
 
     // Newest segment is the last entry (history is oldest-first). For an
     // M+ run that's its "Overall"; for a raid it's the last boss pull.
-    size_t newest = historySize - 1;
+    // Skip trailing "No combat" placeholders (abandoned keys) - there's
+    // nothing to show in them, so land on the newest real segment instead.
+    size_t newest = SIZE_MAX;
+    {
+        std::lock_guard<std::mutex> lock(snapshotMutex_);
+        const auto& hist = cachedSnapshot_.pullHistory;
+        for (size_t i = hist.size(); i-- > 0;) {
+            if (hist[i].segmentType != PullSegmentType::EmptyRun) {
+                newest = i;
+                break;
+            }
+        }
+    }
+    if (newest == SIZE_MAX) {
+        // Every segment is an empty run - nothing worth auto-opening.
+        autoSelectNewestPending_ = false;
+        return;
+    }
     selectedSegment_ = newest;
     viewMode_ = StatsViewMode::HistoricalPull;
     if (stats_) {
@@ -825,6 +842,16 @@ void OverlayApplication::renderUI() {
                 // grouped M+ children and the standalone raid boss pulls.
                 auto drawSegmentRow = [&](size_t idx, size_t displayNum) {
                     const auto& pull = pullHistory[idx];
+
+                    // An abandoned key has no combat to show - render it
+                    // dimmed and non-clickable so it's clearly just a marker
+                    // that the run happened, not a segment you can open.
+                    if (pull.segmentType == PullSegmentType::EmptyRun) {
+                        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.5f, 0.5f, 0.5f, 1.0f));
+                        ImGui::TextDisabled("  (no combat)");
+                        ImGui::PopStyleColor();
+                        return;
+                    }
 
                     ImVec4 color;
                     if (pull.segmentType == PullSegmentType::DungeonOverall) {

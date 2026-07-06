@@ -494,6 +494,14 @@ private:
     // the current M+ run so the selector can group by dungeonRunId. No-op
     // for non-M+ segments, which stay flat.
     void stampGroupInfo(PullSegment& seg) const;
+
+    // If the current M+ run produced no segments (a key that was started
+    // then abandoned - WoW writes no combat for those), push a placeholder
+    // EmptyRun segment so the run still shows as a group in the selector.
+    // Called when a run ends: at the next CHALLENGE_MODE_START, at
+    // CHALLENGE_MODE_END, and at end-of-scan. endOffset/endTime bound the
+    // placeholder; both may equal the start for an instant restart.
+    void flushEmptyRunIfNeeded(size_t endOffset, int32_t endTime_ms);
     // Date-aware timestamp conversion (epoch milliseconds). Must stay
     // date-aware: a time-of-day-only value makes every pull spanning
     // midnight end "before" it started and pushes all post-midnight

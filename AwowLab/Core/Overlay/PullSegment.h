@@ -9,6 +9,10 @@ enum class PullSegmentType : uint8_t {
     BossPull,        // Boss encounter
     DungeonOverall,  // Full dungeon (CHALLENGE_MODE_START to CHALLENGE_MODE_END)
     TrashOverall,    // Virtual aggregate (for stats display only)
+    EmptyRun,        // A key that was started then abandoned with no combat.
+                     // WoW writes no events for an abandoned run, so there's
+                     // nothing to parse - it exists only so the run still
+                     // shows as a group in the selector.
     Unknown
 };
 
