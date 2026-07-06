@@ -73,6 +73,11 @@ breakdown.blacklisted_damage,블랙리스트 주문(피해 보고에서 제외)
 breakdown.restore,복원
 breakdown.more_targets,... 그리고 %zu 더 많은 대상
 
+settings.title,설정
+settings.log_folder,로그 폴더
+settings.change_log_folder,변경...
+settings.language,언어
+
 breakdown.raw_tooltip,피해 감소 적용 전 피해/치유
 breakdown.raw_tooltip_crit1,치명타의 경우 원래 피해량을 추정합니다
 breakdown.raw_tooltip_crit2,치명타 배율을 200%로 가정합니다.

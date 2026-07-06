@@ -37,8 +37,6 @@ add_executable(AwowLabOverlay WIN32
     Core/MobWeightSettings.h
     Core/Overlay/ActiveLogWatcher.cpp
     Core/Overlay/ActiveLogWatcher.h
-    Core/Overlay/ClientLocale.cpp
-    Core/Overlay/ClientLocale.h
     Core/Overlay/EmbeddedOverlayAssets.h
     Core/Overlay/LiveCombatStats.cpp
     Core/Overlay/LiveCombatStats.h

@@ -51,12 +51,6 @@ public:
         uiFontSize_ = size;
     }
 
-    // Standalone overlay: match the WoW client's language, read from the
-    // client's Config.wtf next to the Logs folder, unless the user picked
-    // a language in the main app. Off by default so the main app's
-    // overlay mode leaves the shared localization state alone.
-    void setFollowClientLanguage(bool follow) { followClientLanguage_ = follow; }
-
     // Run the overlay application (main loop)
     // Returns exit code
     int run();
@@ -86,13 +80,27 @@ private:
     // Standalone-only extras (see the setters above)
     const unsigned char* uiFontData_ = nullptr;
     size_t uiFontSize_ = 0;
-    bool followClientLanguage_ = false;
 
-    // Switch the UI language to the WoW client's, when enabled and the
-    // user hasn't picked a language in the main app. Runs once the logs
-    // folder is known; never persisted, so a client language change is
-    // picked up on the next launch.
-    void applyClientLanguage();
+    // Settings popup (gear button on the top row). Holds the log-folder
+    // display and the manual language picker. Toggled by the gear, drawn
+    // as a floating window on top of the meter.
+    bool settingsOpen_ = false;
+    // Laid-out size of the settings window from its last render, fed to
+    // updateModalAutoGrow so the OS window grows to fit it.
+    float settingsMeasuredW_ = 0.0f;
+    float settingsMeasuredH_ = 0.0f;
+    void renderSettingsWindow();
+
+    // Point the live log manager at a new folder chosen from the settings
+    // popup: persists the choice, tears the manager down, and restarts it
+    // on the new folder with the same callbacks and stats attachment as
+    // the initial launch. No-op if the folder matches the current one.
+    void changeLogFolder(const std::filesystem::path& newFolder);
+
+    // Wire the log manager's data-update callback and attach the live
+    // stats to its session. Shared by the initial start and by a folder
+    // change so both paths hook up identically.
+    void wireLogManagerCallbacks();
 
     // Segment selection (Details-style indexing)
     // SIZE_MAX = Current (live), SIZE_MAX-1 = Overall, 0+ = historical pull index

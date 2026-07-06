@@ -73,6 +73,11 @@ breakdown.blacklisted_damage,Hechizos de la lista negra (excluidos de los inform
 breakdown.restore,Restaurar
 breakdown.more_targets,... y %zu más objetivos
 
+settings.title,Configuración
+settings.log_folder,Carpeta de registros
+settings.change_log_folder,Cambiar...
+settings.language,Idioma
+
 breakdown.raw_tooltip,Daño/sanación antes de mitigación
 breakdown.raw_tooltip_crit1,"Para golpes críticos, estimamos el daño bruto"
 breakdown.raw_tooltip_crit2,asumiendo un multiplicador de crítico de 200%.

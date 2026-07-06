@@ -73,6 +73,11 @@ breakdown.blacklisted_damage,Заклинания из черного списк
 breakdown.restore,Восстановить
 breakdown.more_targets,... и %zu больше целей
 
+settings.title,Настройки
+settings.log_folder,Папка журналов
+settings.change_log_folder,Изменить...
+settings.language,Язык
+
 breakdown.raw_tooltip,Урон/исцеление до поглощения
 breakdown.raw_tooltip_crit1,Для критических ударов исходный урон оценивается
 breakdown.raw_tooltip_crit2,из расчёта множителя критического удара 200%.

@@ -73,6 +73,11 @@ breakdown.blacklisted_damage,Feitiços na lista negra (excluídos dos relatório
 breakdown.restore,Restaurar
 breakdown.more_targets,... e %zu mais alvos
 
+settings.title,Configurações
+settings.log_folder,Pasta de registros
+settings.change_log_folder,Alterar...
+settings.language,Idioma
+
 breakdown.raw_tooltip,Dano/cura antes da mitigação
 breakdown.raw_tooltip_crit1,"Para acertos críticos, estimamos o dano bruto"
 breakdown.raw_tooltip_crit2,assumindo um multiplicador de crítico de 200%.

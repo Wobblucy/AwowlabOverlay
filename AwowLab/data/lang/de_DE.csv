@@ -73,6 +73,11 @@ breakdown.blacklisted_damage,Auf der schwarzen Liste stehende Zaubersprüche (vo
 breakdown.restore,Wiederherstellen
 breakdown.more_targets,... und %zu weitere Ziele
 
+settings.title,Einstellungen
+settings.log_folder,Log-Ordner
+settings.change_log_folder,Ändern...
+settings.language,Sprache
+
 breakdown.raw_tooltip,Schaden/Heilung vor Schadensminderung
 breakdown.raw_tooltip_crit1,Bei kritischen Treffern wird der Rohschaden geschätzt
 breakdown.raw_tooltip_crit2,mit einem angenommenen 200%-Krit-Multiplikator.

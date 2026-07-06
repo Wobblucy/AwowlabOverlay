@@ -73,6 +73,11 @@ breakdown.blacklisted_damage,黑名单法术（从伤害报告中排除）
 breakdown.restore,恢复
 breakdown.more_targets,... 和 %zu 更多目标
 
+settings.title,设置
+settings.log_folder,日志文件夹
+settings.change_log_folder,更改...
+settings.language,语言
+
 breakdown.raw_tooltip,减伤前的伤害/治疗
 breakdown.raw_tooltip_crit1,对于暴击，我们会估算原始伤害
 breakdown.raw_tooltip_crit2,按 200% 暴击倍率计算。

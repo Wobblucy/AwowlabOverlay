@@ -73,6 +73,11 @@ breakdown.blacklisted_damage,黑名單上的法術（從損傷報告中排除）
 breakdown.restore,還原
 breakdown.more_targets,...和%zu更多的目標
 
+settings.title,設定
+settings.log_folder,日誌資料夾
+settings.change_log_folder,變更...
+settings.language,語言
+
 breakdown.raw_tooltip,減傷前的傷害/治療
 breakdown.raw_tooltip_crit1,對於爆擊，我們會估算原始傷害
 breakdown.raw_tooltip_crit2,按 200% 爆擊倍率計算。

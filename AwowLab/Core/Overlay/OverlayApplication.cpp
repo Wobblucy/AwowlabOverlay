@@ -1,5 +1,4 @@
 #include "OverlayApplication.h"
-#include "ClientLocale.h"
 #include "Core/UnifiedSettings.h"
 #include "Core/MobWeightSettings.h"
 #include "Core/PhaseSettings.h"
@@ -212,11 +211,26 @@ bool OverlayApplication::initLogManager() {
 #endif
     }
 
-    // The logs folder is settled now - if we're following the WoW client
-    // language, this is the moment we can find its Config.wtf
-    applyClientLanguage();
+    // Wire up callbacks (shared with the settings popup's folder change)
+    wireLogManagerCallbacks();
 
-    // Wire up callbacks
+    // Start monitoring
+    if (!logManager_->start(logsFolder_)) {
+        return false;
+    }
+
+    // Attach stats to session
+    if (auto* session = logManager_->getSession()) {
+        stats_->attachSession(session);
+    }
+
+    std::cout << "Monitoring: " << logsFolder_.string() << "\n";
+    return true;
+}
+
+void OverlayApplication::wireLogManagerCallbacks() {
+    if (!logManager_) return;
+
     logManager_->setOnDataUpdate([this]() {
         // Refresh stats and update cached snapshot when new data arrives.
         // Rebuilding the stat databases mutates state the render thread
@@ -241,19 +255,49 @@ bool OverlayApplication::initLogManager() {
     // into HistoricalPull mode from a poll-thread callback also risks
     // re-entering the actorMapMutex_ that poll() holds, so leaving
     // this off avoids that class of bug.
+}
 
-    // Start monitoring
-    if (!logManager_->start(logsFolder_)) {
-        return false;
+void OverlayApplication::changeLogFolder(const std::filesystem::path& newFolder) {
+    if (newFolder.empty()) return;
+
+    std::error_code ec;
+    if (!std::filesystem::is_directory(newFolder, ec)) return;
+
+    // Nothing to do if the user re-picked the folder already being watched.
+    if (!logsFolder_.empty() &&
+        std::filesystem::equivalent(newFolder, logsFolder_, ec)) {
+        return;
     }
 
-    // Attach stats to session
+    // Persist the choice so the next launch comes up on the new folder.
+    SettingsCache::instance().get().overlayLogsFolder = newFolder.string();
+    SettingsCache::instance().markDirty();
+    SettingsCache::instance().flush();
+
+    // Tear down the old watcher and stand a fresh one up on the new folder,
+    // wiring the same callbacks and stats attachment the initial launch used
+    // so the meter reattaches without a restart. Clear the stale snapshot so
+    // the old folder's numbers don't linger while the new scan spins up.
+    logManager_->stop();
+    logsFolder_ = newFolder;
+    {
+        std::lock_guard<std::mutex> lock(snapshotMutex_);
+        cachedSnapshot_ = LiveLogSession::Snapshot{};
+    }
+    selectedSegment_ = SEGMENT_CURRENT;
+
+    wireLogManagerCallbacks();
+
+    if (!logManager_->start(logsFolder_)) {
+        std::cerr << "Failed to start monitoring: " << logsFolder_.string() << "\n";
+        return;
+    }
+
     if (auto* session = logManager_->getSession()) {
         stats_->attachSession(session);
     }
 
     std::cout << "Monitoring: " << logsFolder_.string() << "\n";
-    return true;
 }
 
 void OverlayApplication::processFrame() {
@@ -444,6 +488,11 @@ void OverlayApplication::updateModalAutoGrow() {
         // fixed roomy target lets the OS window settle once while the
         // auto-sizing editor floats inside it.
         want(ImVec2(0, 0), 620, 620);
+    }
+    if (settingsOpen_) {
+        // Small popup; make sure the OS window has room even if the user
+        // shrank it below the settings window's footprint.
+        want(ImVec2(settingsMeasuredW_, settingsMeasuredH_), 420, 360);
     }
 
     bool wantsBig = (wantW > 0);
@@ -637,6 +686,17 @@ void OverlayApplication::renderUI() {
                 meterPanel_->selectPhase(current - 1);
             }
         }
+    }
+
+    // Settings gear - opens the popup with the log-folder and language
+    // controls. The gear glyph (U+2699) is in the embedded font's atlas
+    // (see OverlayVulkanContext's glyph ranges).
+    ImGui::SameLine();
+    if (awlui::IconButton("overlay_settings", "\xE2\x9A\x99")) {
+        settingsOpen_ = !settingsOpen_;
+    }
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("%s", L("settings.title"));
     }
 
     ImGui::PopStyleColor(2);  // FrameBg colors
@@ -1038,6 +1098,11 @@ void OverlayApplication::renderUI() {
         }
     }
 
+    // Settings popup - log folder + language picker. Same top-of-z-order
+    // treatment as the other panels since the meter window doesn't bring
+    // itself to front on focus.
+    renderSettingsWindow();
+
     // Drag the overlay from any empty spot, not just the thin strip up
     // top - during the initial scan the strip is the only handle and
     // everyone misses it, which reads as a frozen window. Runs after
@@ -1074,29 +1139,98 @@ void OverlayApplication::renderUI() {
     ImGui::End();
 }
 
-void OverlayApplication::applyClientLanguage() {
-    if (!followClientLanguage_) {
-        return;
-    }
+void OverlayApplication::renderSettingsWindow() {
+    if (!settingsOpen_) return;
 
-    // A language picked in the main app wins over detection. The saved
-    // value defaults to en_US and is written even for users who never
-    // touched the picker, so only a non-English saved locale can be
-    // treated as an actual choice.
-    const auto& settings = SettingsCache::instance().get();
-    auto saved = LocalizationManager::parseLocale(settings.locale);
-    if (saved && *saved != Locale::en_US) {
-        return;
-    }
+    // The languages the overlay can actually render. The built-in font
+    // covers Latin + Cyrillic only, so Korean and Chinese are left off
+    // (they'd draw as empty boxes). Each entry shows its native name.
+    struct LanguageChoice {
+        Locale locale;
+        const char* nativeName;
+    };
+    // Native names as UTF-8. Hex escapes are split into separate string
+    // literals where a letter follows (e.g. "...\xA7" "ais") so the
+    // compiler doesn't fold the trailing letter into the hex escape.
+    static const LanguageChoice kLanguages[] = {
+        {Locale::en_US, "English"},
+        {Locale::de_DE, "Deutsch"},
+        {Locale::fr_FR, "Fran\xC3\xA7" "ais"},       // Français
+        {Locale::es_MX, "Espa\xC3\xB1" "ol"},        // Español
+        {Locale::pt_BR, "Portugu\xC3\xAA" "s"},      // Português
+        {Locale::ru_RU, "\xD0\xA0\xD1\x83\xD1\x81\xD1\x81\xD0\xBA\xD0\xB8\xD0\xB9"},  // Русский
+    };
+    constexpr int kLanguageCount = static_cast<int>(sizeof(kLanguages) / sizeof(kLanguages[0]));
 
-    // Detected, never saved: detection stays live, so switching the WoW
-    // client language carries over on the overlay's next launch. Safe to
-    // do after startup too - only the strings swap; the font atlas
-    // already covers every language we can display.
-    if (auto detected = awow::detectClientLocale(logsFolder_)) {
-        LocalizationManager::instance().setLocale(
-            awow::overlayDisplayableLocale(*detected));
+    ImGui::SetNextWindowSize(ImVec2(360, 0), ImGuiCond_FirstUseEver);
+
+    if (ImGui::Begin(L("settings.title"), &settingsOpen_,
+                     ImGuiWindowFlags_NoCollapse)) {
+        // --- Log folder ---
+        ImGui::TextDisabled("%s", L("settings.log_folder"));
+        std::string folderText = logsFolder_.empty()
+            ? std::string("-")
+            : logsFolder_.string();
+        ImGui::TextWrapped("%s", folderText.c_str());
+
+        if (awlui::Button(L("settings.change_log_folder"),
+                          awlui::ButtonVariant::Secondary,
+                          awlui::ButtonSize::Sm)) {
+#ifdef _WIN32
+            std::filesystem::path picked =
+                showFolderPickerDialog(L"Select WoW Combat Log Folder");
+            // A cancelled picker or an invalid/same folder is a no-op.
+            changeLogFolder(picked);
+#endif
+        }
+
+        ImGui::Spacing();
+        ImGui::Separator();
+        ImGui::Spacing();
+
+        // --- Language ---
+        ImGui::TextDisabled("%s", L("settings.language"));
+
+        int current = 0;
+        Locale active = LocalizationManager::instance().getLocale();
+        for (int i = 0; i < kLanguageCount; ++i) {
+            if (kLanguages[i].locale == active) {
+                current = i;
+                break;
+            }
+        }
+
+        const char* items[kLanguageCount];
+        for (int i = 0; i < kLanguageCount; ++i) {
+            items[i] = kLanguages[i].nativeName;
+        }
+
+        ImGui::SetNextItemWidth(200.0f);
+        if (awlui::Combo("##OverlayLanguage", &current, items, kLanguageCount)) {
+            Locale chosen = kLanguages[current].locale;
+            LocalizationManager::instance().setLocale(chosen);
+            // Persist the manual choice so it survives a restart.
+            SettingsCache::instance().get().locale =
+                LocalizationManager::getLocaleCode(chosen);
+            SettingsCache::instance().markDirty();
+            SettingsCache::instance().flush();
+        }
+
+        ImGui::Spacing();
+        ImGui::Separator();
+        ImGui::Spacing();
+
+        if (awlui::Button(L("btn.close"), awlui::ButtonVariant::Ghost,
+                          awlui::ButtonSize::Sm)) {
+            settingsOpen_ = false;
+        }
+
+        // Laid-out size for the overlay's window auto-grow.
+        ImVec2 sz = ImGui::GetWindowSize();
+        settingsMeasuredW_ = sz.x;
+        settingsMeasuredH_ = sz.y;
     }
+    ImGui::End();
 }
 
 bool OverlayApplication::screenCursor(double& x, double& y) const {

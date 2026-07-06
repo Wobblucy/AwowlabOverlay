@@ -73,6 +73,11 @@ breakdown.blacklisted_damage,Sorts sur liste noire (exclus des rapports de dég�
 breakdown.restore,Restaurer
 breakdown.more_targets,... et %zu plus de cibles
 
+settings.title,Paramètres
+settings.log_folder,Dossier des journaux
+settings.change_log_folder,Modifier...
+settings.language,Langue
+
 breakdown.raw_tooltip,Dégâts/soins avant mitigation
 breakdown.raw_tooltip_crit1,"Pour les coups critiques, les dégâts bruts sont estimés"
 breakdown.raw_tooltip_crit2,en supposant un multiplicateur de critique de 200%.

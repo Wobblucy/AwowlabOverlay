@@ -110,6 +110,11 @@ breakdown.blacklisted_damage,Blacklisted Spells (excluded from damage reports)
 breakdown.restore,Restore
 breakdown.more_targets,... and %zu more targets
 
+settings.title,Settings
+settings.log_folder,Log folder
+settings.change_log_folder,Change...
+settings.language,Language
+
 context_menu.open_wowhead,Open on Wowhead
 context_menu.open_spell_settings,Open Spell Settings
 context_menu.open_auto_annotations,Open in Auto Annotations

@@ -12,7 +12,7 @@ The overlay is the standalone companion to [AwowLab](https://github.com/Wobblucy
 - **Death recap** — what killed you, hit by hit
 - **Player breakdowns** — per-spell damage and healing details, avoidable damage taken
 - **Mob weighting** — down-weight unimportant adds so the meter reflects actual progress, not padding
-- **Speaks your language** — automatically matches your WoW client language
+- **Speaks your language** — pick your UI language in Settings (English, German, French, Spanish, Portuguese, Russian)
 
 ## Getting Started
 
@@ -24,7 +24,7 @@ The overlay stays on top of the game window. Drag it wherever you like; position
 
 ## Languages
 
-The overlay reads your WoW client's language setting and comes up in the same language — no configuration needed. English, German, French, Spanish, Portuguese, and Russian are supported. Korean and Chinese clients currently see English; those scripts need fonts the overlay doesn't bundle yet.
+Choose the overlay's UI language from the Settings gear in the top row. English, German, French, Spanish, Portuguese, and Russian are supported, and the choice is remembered between sessions. New installs default to English. Korean and Chinese aren't offered yet; those scripts need fonts the overlay doesn't bundle.
 
 ## Requirements
 

@@ -4,7 +4,6 @@
 // then OverlayApplication.
 
 #include "OverlayApplication.h"
-#include "ClientLocale.h"
 #include "EmbeddedOverlayAssets.h"
 #include "Core/ErrorLogger.h"
 #include "Core/LocalizationManager.h"
@@ -22,6 +21,21 @@
 #endif
 
 namespace {
+
+// Clamp a saved locale to what the overlay's built-in font can render.
+// The language picker only ever offers Latin/Cyrillic locales, but a
+// settings file left over from an older build could still carry a CJK
+// choice, which would render as empty boxes - fall those back to English.
+Locale overlayDisplayableLocale(Locale locale) {
+    switch (locale) {
+        case Locale::ko_KR:
+        case Locale::zh_CN:
+        case Locale::zh_TW:
+            return Locale::en_US;
+        default:
+            return locale;
+    }
+}
 
 // Set working directory to the executable directory so the settings file
 // resolves regardless of how the overlay was launched (shortcut, task
@@ -68,14 +82,14 @@ void initializeRuntime() {
     }
 
     // Apply the locale saved in the shared settings, clamped to what the
-    // built-in font can render. When it's the en_US default, the overlay
-    // switches to the WoW client's language once the logs folder is
-    // known (see OverlayApplication::applyClientLanguage).
+    // built-in font can render. This is the only source of the overlay's
+    // UI language now - the user picks it in the Settings popup, and it
+    // persists here. Defaults to en_US when nothing is saved.
     const auto& settings = SettingsCache::instance().get();
     if (!settings.locale.empty()) {
         auto savedLocale = LocalizationManager::parseLocale(settings.locale);
         if (savedLocale) {
-            locMgr.setLocale(awow::overlayDisplayableLocale(*savedLocale));
+            locMgr.setLocale(overlayDisplayableLocale(*savedLocale));
         }
     }
 }
@@ -87,7 +101,6 @@ int runOverlay(const std::filesystem::path& logsFolder) {
     try {
         OverlayApplication overlay;
         overlay.setUiFont(awow::embedded::kUiFont, awow::embedded::kUiFontSize);
-        overlay.setFollowClientLanguage(true);
         if (!logsFolder.empty()) {
             overlay.setLogsFolder(logsFolder);
         }
