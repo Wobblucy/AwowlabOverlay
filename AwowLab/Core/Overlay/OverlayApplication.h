@@ -108,6 +108,18 @@ private:
     static constexpr size_t SEGMENT_OVERALL = SIZE_MAX - 1;
     size_t selectedSegment_ = SEGMENT_CURRENT;
 
+    // When a folder is first attached (launch or folder change), the log
+    // on disk is usually a finished session, not one WoW is still writing.
+    // In that case "Current" has no live data and the meter would sit
+    // empty until the user clicks a segment. To always show the most
+    // recent log immediately, the first data update after an attach
+    // auto-selects the newest segment. Reset on every (re)attach; cleared
+    // once we've done it or once the user picks a segment themselves.
+    bool autoSelectNewestPending_ = false;
+    // Select the newest historical segment (last run's Overall, else the
+    // last pull). No-op if history is empty or the user already navigated.
+    void selectNewestSegment();
+
     // Modal auto-grow state. The overlay window is deliberately small
     // for at-a-glance meter viewing, so any modal opened inside it
     // (breakdown, avoidance breakdown, death recap) is clamped to that

@@ -214,6 +214,10 @@ bool OverlayApplication::initLogManager() {
     // Wire up callbacks (shared with the settings popup's folder change)
     wireLogManagerCallbacks();
 
+    // On first launch, snap to the newest segment of whatever log is on
+    // disk so the most recent run shows immediately (see selectNewestSegment).
+    autoSelectNewestPending_ = true;
+
     // Start monitoring
     if (!logManager_->start(logsFolder_)) {
         return false;
@@ -245,6 +249,14 @@ void OverlayApplication::wireLogManagerCallbacks() {
             std::lock_guard<std::mutex> lock(snapshotMutex_);
             cachedSnapshot_ = session->getSnapshot();
         }
+
+        // First update after an attach: if the log we just loaded is a
+        // finished session (nothing streaming into "Current" yet), snap
+        // to its most recent segment so the newest log's data shows on
+        // open instead of an empty meter.
+        if (autoSelectNewestPending_) {
+            selectNewestSegment();
+        }
     });
 
     // No auto-freeze on pull end. LiveLogSession now defers clearing
@@ -255,6 +267,47 @@ void OverlayApplication::wireLogManagerCallbacks() {
     // into HistoricalPull mode from a poll-thread callback also risks
     // re-entering the actorMapMutex_ that poll() holds, so leaving
     // this off avoids that class of bug.
+}
+
+void OverlayApplication::selectNewestSegment() {
+    // Only auto-select once per attach, and never override a segment the
+    // user already picked.
+    if (!autoSelectNewestPending_ || selectedSegment_ != SEGMENT_CURRENT) {
+        autoSelectNewestPending_ = false;
+        return;
+    }
+
+    // If the session is actively streaming (WoW is writing right now),
+    // "Current" already shows live data - leave it there and stop trying.
+    if (logManager_) {
+        if (auto* session = logManager_->getSession()) {
+            if (session->isInCombat()) {
+                autoSelectNewestPending_ = false;
+                return;
+            }
+        }
+    }
+
+    size_t historySize = 0;
+    {
+        std::lock_guard<std::mutex> lock(snapshotMutex_);
+        historySize = cachedSnapshot_.pullHistory.size();
+    }
+    if (historySize == 0) {
+        // Nothing to select yet; the scan may still be finding segments.
+        // Stay armed so a later update can pick the newest one.
+        return;
+    }
+
+    // Newest segment is the last entry (history is oldest-first). For an
+    // M+ run that's its "Overall"; for a raid it's the last boss pull.
+    size_t newest = historySize - 1;
+    selectedSegment_ = newest;
+    viewMode_ = StatsViewMode::HistoricalPull;
+    if (stats_) {
+        stats_->selectHistoricalPull(newest);
+    }
+    autoSelectNewestPending_ = false;
 }
 
 void OverlayApplication::changeLogFolder(const std::filesystem::path& newFolder) {
@@ -287,6 +340,10 @@ void OverlayApplication::changeLogFolder(const std::filesystem::path& newFolder)
     selectedSegment_ = SEGMENT_CURRENT;
 
     wireLogManagerCallbacks();
+
+    // Same as launch: snap to the newest segment of the newly chosen
+    // folder's log so the most recent run shows right away.
+    autoSelectNewestPending_ = true;
 
     if (!logManager_->start(logsFolder_)) {
         std::cerr << "Failed to start monitoring: " << logsFolder_.string() << "\n";
