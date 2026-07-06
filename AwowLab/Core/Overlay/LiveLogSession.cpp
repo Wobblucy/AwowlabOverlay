@@ -372,13 +372,13 @@ void LiveLogSession::handleChallengeModeStart(const std::vector<std::string_view
         clearLivePullData();
     }
 
-    // Reset session data for new dungeon. Keep guidToName_ and
-    // spellIdToName_ - they're lookup caches that help with name
-    // display across pulls.
-    pullHistory_.clear();
+    // Reset the per-run scope for the new dungeon, but do NOT clear
+    // pullHistory_ - the selector groups by dungeonRunId, so prior runs
+    // (earlier Algeth'ar attempts and the like) must stay in the list.
+    // Keep guidToName_ and spellIdToName_ too - they're lookup caches
+    // that help with name display across pulls.
     encounters_.clear();
     currentPull_ = PullSegment{};
-    nextPullNumber_ = 1;
     currentTrashNumber_ = 0;
     currentBossNumber_ = 0;
     lastCombatEventTime_ms_ = 0;
@@ -433,10 +433,19 @@ void LiveLogSession::handleChallengeModeEnd(const std::vector<std::string_view>&
         overall.inMythicPlus = true;
         overall.keystoneLevel = currentKeystoneLevel_;
         overall.pullNumber = nextPullNumber_++;
+        stampGroupInfo(overall);
         pullHistory_.push_back(overall);
 
         if (onPullEnd_) {
             onPullEnd_(overall);
+        }
+    }
+
+    // Run finished: stamp its end time onto every segment of this run so
+    // the group header reads "Algeth'ar Academy (12:37)".
+    for (auto& seg : pullHistory_) {
+        if (seg.dungeonRunId == currentDungeonRunId_ && seg.inMythicPlus) {
+            seg.dungeonEndTime_ms = timestamp_ms;
         }
     }
 
@@ -475,10 +484,21 @@ void LiveLogSession::startNewPull(int32_t timestamp_ms, size_t byteOffset,
     currentPull_.inMythicPlus = inMythicPlus_;
     currentPull_.keystoneLevel = currentKeystoneLevel_;
     currentPull_.dungeonRunId = currentDungeonRunId_;
+    stampGroupInfo(currentPull_);
 
     if (onPullStart_) {
         onPullStart_(currentPull_);
     }
+}
+
+void LiveLogSession::stampGroupInfo(PullSegment& seg) const {
+    // Only M+ segments get a group header; standalone raid boss pulls
+    // stay flat (empty dungeonName), so the selector renders them
+    // without a collapsible wrapper. dungeonEndTime_ms stays 0 while the
+    // run is live and is backfilled at CHALLENGE_MODE_END.
+    if (!seg.inMythicPlus) return;
+    seg.dungeonName = currentDungeonName_;
+    seg.dungeonStartTime_ms = challengeModeStartTime_ms_;
 }
 
 void LiveLogSession::clearLivePullData() {
@@ -929,11 +949,13 @@ void LiveLogSession::scanForSegments() {
                 int32_t timestamp_ms = static_cast<int32_t>(absolute_ms - logStartTimestamp_);
 
                 if (eventType == "CHALLENGE_MODE_START") {
-                    // Reset for new dungeon
-                    pullHistory_.clear();
+                    // Start a fresh run WITHOUT wiping earlier runs - the
+                    // selector groups by dungeonRunId, so prior Algeth'ar
+                    // (or any) attempts stay in the list. Only reset the
+                    // per-run counters and the in-flight pull; the new
+                    // dungeonRunId below keeps this run's segments distinct.
                     encounters_.clear();
                     currentPull_ = PullSegment{};
-                    nextPullNumber_ = 1;
                     currentTrashNumber_ = 0;
                     currentBossNumber_ = 0;
                     combatState_ = CombatState::Idle;
@@ -971,6 +993,7 @@ void LiveLogSession::scanForSegments() {
                         trash.inMythicPlus = true;
                         trash.keystoneLevel = currentKeystoneLevel_;
                         trash.pullNumber = nextPullNumber_++;
+                        stampGroupInfo(trash);
                         pullHistory_.push_back(trash);
                     }
 
@@ -987,7 +1010,17 @@ void LiveLogSession::scanForSegments() {
                         overall.inMythicPlus = true;
                         overall.keystoneLevel = currentKeystoneLevel_;
                         overall.pullNumber = nextPullNumber_++;
+                        stampGroupInfo(overall);
                         pullHistory_.push_back(overall);
+                    }
+
+                    // The run is over: backfill its end time onto every
+                    // segment of this run so the group header can show a
+                    // duration ("Algeth'ar Academy (12:37)").
+                    for (auto& seg : pullHistory_) {
+                        if (seg.dungeonRunId == currentDungeonRunId_ && seg.inMythicPlus) {
+                            seg.dungeonEndTime_ms = timestamp_ms;
+                        }
                     }
 
                     inMythicPlus_ = false;
@@ -1012,6 +1045,7 @@ void LiveLogSession::scanForSegments() {
                             trash.inMythicPlus = true;
                             trash.keystoneLevel = currentKeystoneLevel_;
                             trash.pullNumber = nextPullNumber_++;
+                            stampGroupInfo(trash);
                             pullHistory_.push_back(trash);
                         }
 

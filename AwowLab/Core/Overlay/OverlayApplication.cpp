@@ -688,11 +688,11 @@ void OverlayApplication::renderUI() {
         }
     }
 
-    // Settings gear - opens the popup with the log-folder and language
-    // controls. The gear glyph (U+2699) is in the embedded font's atlas
-    // (see OverlayVulkanContext's glyph ranges).
+    // Settings button - opens the popup with the log-folder and language
+    // controls. The embedded Noto Sans subset has no gear glyph (U+2699),
+    // so we use a plain ASCII label the font is guaranteed to render.
     ImGui::SameLine();
-    if (awlui::IconButton("overlay_settings", "\xE2\x9A\x99")) {
+    if (awlui::IconButton("overlay_settings", "[=]")) {
         settingsOpen_ = !settingsOpen_;
     }
     if (ImGui::IsItemHovered()) {
@@ -763,8 +763,10 @@ void OverlayApplication::renderUI() {
 
             if (!pullHistory.empty()) {
                 ImGui::Separator();
-                for (size_t i = 0; i < pullHistory.size(); ++i) {
-                    size_t idx = pullHistory.size() - 1 - i;
+
+                // Draw one flat, selectable segment row. Shared by both the
+                // grouped M+ children and the standalone raid boss pulls.
+                auto drawSegmentRow = [&](size_t idx, size_t displayNum) {
                     const auto& pull = pullHistory[idx];
 
                     ImVec4 color;
@@ -780,7 +782,7 @@ void OverlayApplication::renderUI() {
 
                     char label[128];
                     snprintf(label, sizeof(label), "#%zu %s (%s)%s",
-                        i + 1,
+                        displayNum,
                         pull.label.c_str(),
                         pull.getDurationString().c_str(),
                         (pull.isEncounter && pull.success) ? " *" : "");
@@ -793,6 +795,74 @@ void OverlayApplication::renderUI() {
                     }
 
                     ImGui::PopStyleColor();
+                };
+
+                // Walk newest-first. M+ segments (dungeonName set) collapse
+                // under one header per dungeonRunId; standalone raid boss
+                // pulls render flat, no wrapper. Children keep newest-at-top
+                // order within their run. Parsing stays lazy - a child only
+                // parses when its row is clicked (selectHistoricalPull).
+                size_t displayNum = pullHistory.size();
+                for (size_t i = 0; i < pullHistory.size(); ) {
+                    size_t idx = pullHistory.size() - 1 - i;
+                    const auto& head = pullHistory[idx];
+
+                    if (head.dungeonName.empty()) {
+                        // Ungrouped (raid boss / trash without a run)
+                        drawSegmentRow(idx, displayNum--);
+                        ++i;
+                        continue;
+                    }
+
+                    // Collect this run's contiguous span (walking backwards,
+                    // all rows sharing dungeonRunId sit together).
+                    uint32_t runId = head.dungeonRunId;
+                    size_t runCount = 0;
+                    while (i + runCount < pullHistory.size()) {
+                        size_t j = pullHistory.size() - 1 - (i + runCount);
+                        if (pullHistory[j].dungeonRunId != runId ||
+                            pullHistory[j].dungeonName.empty()) {
+                            break;
+                        }
+                        ++runCount;
+                    }
+
+                    // Group header: "Algeth'ar Academy +12 (12:37)". The run
+                    // duration comes from dungeonEndTime_ms (0 while live -> "...").
+                    char header[160];
+                    int32_t runDur = (head.dungeonEndTime_ms > head.dungeonStartTime_ms)
+                        ? head.dungeonEndTime_ms - head.dungeonStartTime_ms : 0;
+                    if (runDur > 0) {
+                        int mins = runDur / 60000, secs = (runDur / 1000) % 60;
+                        if (head.keystoneLevel > 0) {
+                            snprintf(header, sizeof(header), "%s +%u (%d:%02d)###run%u",
+                                head.dungeonName.c_str(), head.keystoneLevel, mins, secs, runId);
+                        } else {
+                            snprintf(header, sizeof(header), "%s (%d:%02d)###run%u",
+                                head.dungeonName.c_str(), mins, secs, runId);
+                        }
+                    } else if (head.keystoneLevel > 0) {
+                        snprintf(header, sizeof(header), "%s +%u###run%u",
+                            head.dungeonName.c_str(), head.keystoneLevel, runId);
+                    } else {
+                        snprintf(header, sizeof(header), "%s###run%u",
+                            head.dungeonName.c_str(), runId);
+                    }
+
+                    // Newest run defaults open so the last pull is one click away.
+                    ImGui::SetNextItemOpen(i == 0, ImGuiCond_Once);
+                    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.4f, 0.8f, 1.0f, 1.0f));
+                    bool open = ImGui::TreeNode(header);
+                    ImGui::PopStyleColor();
+                    if (open) {
+                        for (size_t k = 0; k < runCount; ++k) {
+                            size_t childIdx = pullHistory.size() - 1 - (i + k);
+                            drawSegmentRow(childIdx, displayNum - k);
+                        }
+                        ImGui::TreePop();
+                    }
+                    displayNum -= runCount;
+                    i += runCount;
                 }
             }
 

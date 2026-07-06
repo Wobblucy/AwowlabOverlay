@@ -578,7 +578,6 @@ bool OverlayVulkanContext::initImGui(GLFWwindow* window) {
             0x0020, 0x017F,  // Basic Latin, Latin-1 Supplement, Latin Extended-A
             0x0400, 0x052F,  // Cyrillic, Cyrillic Supplement
             0x2010, 0x205E,  // General punctuation (dashes, quotes, ellipsis)
-            0x2699, 0x2699,  // Gear (settings button glyph)
             0,
         };
         ImFontConfig fontConfig;

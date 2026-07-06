@@ -42,6 +42,13 @@ struct PullSegment {
     uint32_t keystoneLevel = 0;       // M+ keystone level (0 if not M+)
     uint32_t dungeonRunId = 0;        // Which dungeon/encounter run this pull belongs to
 
+    // Group header info, carried on every segment of an M+ run so the
+    // segment selector can draw one collapsible group per dungeonRunId
+    // without a separate lookup. Empty on standalone raid boss pulls.
+    std::string dungeonName;          // Zone name of the run this belongs to
+    int32_t dungeonStartTime_ms = 0;  // Run start (CHALLENGE_MODE_START) time
+    int32_t dungeonEndTime_ms = 0;    // Run end time; 0 while the run is still live
+
     // Segment classification
     PullSegmentType segmentType = PullSegmentType::Unknown;
     uint32_t trashNumber = 0;         // Trash #N within dungeon run

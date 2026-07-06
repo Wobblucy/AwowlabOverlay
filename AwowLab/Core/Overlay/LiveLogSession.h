@@ -490,6 +490,10 @@ private:
                       bool clearData = true);
     void endCurrentPull(int32_t timestamp_ms, size_t byteOffset);
     void checkIdleTimeout(int32_t currentTime_ms, size_t byteOffset);
+    // Fill a segment's group-header fields (dungeon name + run start) from
+    // the current M+ run so the selector can group by dungeonRunId. No-op
+    // for non-M+ segments, which stay flat.
+    void stampGroupInfo(PullSegment& seg) const;
     // Date-aware timestamp conversion (epoch milliseconds). Must stay
     // date-aware: a time-of-day-only value makes every pull spanning
     // midnight end "before" it started and pushes all post-midnight
