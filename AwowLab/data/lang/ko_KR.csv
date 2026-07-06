@@ -98,7 +98,6 @@ mobweight.explainer,가중치가 적용된 몹에게 입힌 피해는 미터에 
 mobweight.active_hint,몹 가중치 적용 중
 mobweight.reset_all,모든 가중치 초기화
 mobweight.not_in_encounter,이 전투에 없는 저장된 가중치
-mobweight.refresh,새로 고침
 mobweight.hits_fmt,%zu회 적중
 
 context_menu.set_phase_trigger,여기서 새 단계 시작

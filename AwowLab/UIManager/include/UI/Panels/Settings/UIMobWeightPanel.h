@@ -52,10 +52,20 @@ private:
     bool weightsChanged_ = false;
     ImVec2 lastMeasuredSize_ = ImVec2(0, 0);
 
-    // Row list cached per combat database; rebuilt when the pointer
-    // changes or the user hits Refresh
+    // Row list cached per combat database. Rebuilt when the panel opens,
+    // when the database pointer changes, or when the loaded segment's
+    // data changes underneath a stable pointer (the overlay reuses one
+    // CombatDatabase and rebuilds it in place on every segment switch, so
+    // the pointer alone can't tell us the contents moved). builtFingerprint_
+    // captures max-timestamp + row count so a segment change auto-refreshes
+    // without a manual click.
     const CombatDatabase* cachedDb_ = nullptr;
+    uint64_t builtFingerprint_ = 0;
+    bool wasVisible_ = false;
     std::vector<CreatureRow> rows_;
+
+    // Cheap "has the loaded data changed?" fingerprint for combatDb.
+    static uint64_t databaseFingerprint(const CombatDatabase* combatDb);
 
     void rebuildRows(const CombatDatabase* combatDb,
                      const std::unordered_map<std::string, std::string>* guidToName);

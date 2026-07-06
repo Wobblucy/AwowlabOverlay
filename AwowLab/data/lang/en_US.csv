@@ -140,7 +140,6 @@ mobweight.explainer,Damage done to weighted mobs counts at that fraction in the 
 mobweight.active_hint,Mob weighting active
 mobweight.reset_all,Reset all weights
 mobweight.not_in_encounter,Saved weights not in this encounter
-mobweight.refresh,Refresh
 mobweight.hits_fmt,%zu hits
 
 context_menu.set_phase_trigger,Starts a new phase here

@@ -98,7 +98,6 @@ mobweight.explainer,Урон по взвешенным монстрам учит
 mobweight.active_hint,Взвешивание монстров активно
 mobweight.reset_all,Сбросить все веса
 mobweight.not_in_encounter,Сохранённые веса вне этого боя
-mobweight.refresh,Обновить
 mobweight.hits_fmt,%zu попаданий
 
 context_menu.set_phase_trigger,Начинает новую фазу здесь

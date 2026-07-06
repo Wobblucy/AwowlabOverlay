@@ -98,7 +98,6 @@ mobweight.explainer,El daño hecho a monstruos ponderados cuenta solo esa fracci
 mobweight.active_hint,Ponderación de monstruos activa
 mobweight.reset_all,Restablecer todas las ponderaciones
 mobweight.not_in_encounter,Ponderaciones guardadas que no están en este combate
-mobweight.refresh,Actualizar
 mobweight.hits_fmt,%zu golpes
 
 context_menu.set_phase_trigger,Inicia una nueva fase aquí

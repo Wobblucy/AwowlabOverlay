@@ -98,7 +98,6 @@ mobweight.explainer,O dano causado a monstros ponderados conta apenas essa fraç
 mobweight.active_hint,Ponderação de monstros ativa
 mobweight.reset_all,Redefinir todas as ponderações
 mobweight.not_in_encounter,Ponderações salvas que não estão neste combate
-mobweight.refresh,Atualizar
 mobweight.hits_fmt,%zu acertos
 
 context_menu.set_phase_trigger,Inicia uma nova fase aqui

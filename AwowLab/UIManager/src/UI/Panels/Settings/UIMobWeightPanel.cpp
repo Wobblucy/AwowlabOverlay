@@ -11,13 +11,30 @@
 UIMobWeightPanel::UIMobWeightPanel() = default;
 UIMobWeightPanel::~UIMobWeightPanel() = default;
 
+uint64_t UIMobWeightPanel::databaseFingerprint(const CombatDatabase* combatDb) {
+    if (!combatDb) return 0;
+    // Max timestamp moves whenever a different segment is loaded; the
+    // damaged-unit count catches same-length segments with different mobs.
+    // Together they're a cheap "the contents changed" signal that survives
+    // the CombatDatabase pointer staying the same across segment switches.
+    uint64_t ts = static_cast<uint32_t>(combatDb->getMaxTimestamp());
+    uint64_t units = combatDb->getDamageTakenIndex().size();
+    return (ts << 20) ^ units;
+}
+
 void UIMobWeightPanel::render(const CombatDatabase* combatDb,
                               const std::unordered_map<std::string, std::string>* guidToName) {
-    if (!visible_) return;
+    if (!visible_) {
+        wasVisible_ = false;
+        return;
+    }
 
     ImGui::SetNextWindowSize(ImVec2(500, 450), ImGuiCond_FirstUseEver);
 
-    if (ImGui::Begin(L("mobweight.title"), &visible_)) {
+    // No collapse - the overlay auto-grows the OS window to fit this panel,
+    // and a collapsed title bar fights that (the window shrinks to a sliver
+    // then can't be reopened cleanly). Matches the phase editor.
+    if (ImGui::Begin(L("mobweight.title"), &visible_, ImGuiWindowFlags_NoCollapse)) {
         auto& settings = MobWeightSettings::instance();
 
         if (awlui::Toggle(L("mobweight.enabled"), &settings.enabled)) {
@@ -26,16 +43,19 @@ void UIMobWeightPanel::render(const CombatDatabase* combatDb,
         ImGui::TextDisabled("%s", L("mobweight.explainer"));
         ImGui::Spacing();
 
-        // Manual refresh in case the same database got reloaded in place
-        if (awlui::Button(L("mobweight.refresh"), awlui::ButtonVariant::Ghost, awlui::ButtonSize::Sm)) {
-            cachedDb_ = nullptr;
-        }
-
-        // Rebuild the creature list only when the database changes
-        if (combatDb != cachedDb_) {
+        // Auto-refresh the creature list for the current segment: rebuild
+        // when the panel opens, when the database pointer changes, or when
+        // the loaded segment's data changed under a stable pointer (the
+        // overlay reuses one CombatDatabase and refills it per segment).
+        // No manual refresh click needed.
+        uint64_t fingerprint = databaseFingerprint(combatDb);
+        bool justOpened = !wasVisible_;
+        if (justOpened || combatDb != cachedDb_ || fingerprint != builtFingerprint_) {
             rebuildRows(combatDb, guidToName);
             cachedDb_ = combatDb;
+            builtFingerprint_ = fingerprint;
         }
+        wasVisible_ = true;
 
         // Creature list, leaving room for the reset button below
         float footerHeight = ImGui::GetFrameHeightWithSpacing();

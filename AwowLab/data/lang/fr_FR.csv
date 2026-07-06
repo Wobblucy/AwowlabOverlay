@@ -98,7 +98,6 @@ mobweight.explainer,Les dégâts infligés aux monstres pondérés ne comptent q
 mobweight.active_hint,Pondération des monstres active
 mobweight.reset_all,Réinitialiser toutes les pondérations
 mobweight.not_in_encounter,Pondérations enregistrées absentes de ce combat
-mobweight.refresh,Actualiser
 mobweight.hits_fmt,%zu coups
 
 context_menu.set_phase_trigger,Commence une nouvelle phase ici

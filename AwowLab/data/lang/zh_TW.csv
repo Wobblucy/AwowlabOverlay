@@ -98,7 +98,6 @@ mobweight.explainer,對已設權重怪物造成的傷害在統計中僅按該比
 mobweight.active_hint,怪物權重已生效
 mobweight.reset_all,重設所有權重
 mobweight.not_in_encounter,本場戰鬥中沒有的已儲存權重
-mobweight.refresh,重新整理
 mobweight.hits_fmt,%zu 次命中
 
 context_menu.set_phase_trigger,從此處開始新階段

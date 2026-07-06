@@ -98,7 +98,6 @@ mobweight.explainer,Schaden an gewichteten Mobs zählt in den Messgeräten nur z
 mobweight.active_hint,Mob-Gewichtung aktiv
 mobweight.reset_all,Alle Gewichtungen zurücksetzen
 mobweight.not_in_encounter,Gespeicherte Gewichtungen außerhalb dieses Kampfes
-mobweight.refresh,Aktualisieren
 mobweight.hits_fmt,%zu Treffer
 
 context_menu.set_phase_trigger,Startet hier eine neue Phase
