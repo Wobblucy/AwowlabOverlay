@@ -1,6 +1,7 @@
 #include "../CombatDatabase.h"
 #include "QueryHelpers.h"
 #include "Core/StringInterner.h"
+#include "Core/MobWeightSettings.h"
 #include "Structures/CombatTypes.h"  // For CombatEventFlags
 #include <algorithm>
 #include <unordered_map>
@@ -321,13 +322,29 @@ std::vector<ActorCombatStats> CombatDatabase::getDamageDoneToTarget(
     int32_t end_time_ms,
     size_t max_results
 ) const {
+    // The picker merges all spawns of one enemy type into a single row, so
+    // resolve the clicked guid's npc id and let the group overload gather
+    // every spawn of that type. An npc id of 0 (environment, a mob with no
+    // npc id in its guid) falls back to matching just this one guid.
+    uint32_t npcId = MobWeightSettings::npcIdFromGuid(target_guid);
+    return getDamageDoneToTargetGroup(target_guid, npcId, start_time_ms, end_time_ms, max_results);
+}
+
+std::vector<ActorCombatStats> CombatDatabase::getDamageDoneToTargetGroup(
+    const std::string& target_guid,
+    uint32_t target_npc_id,
+    int32_t start_time_ms,
+    int32_t end_time_ms,
+    size_t max_results
+) const {
     if (!actorMap_ || actorMap_->empty()) {
         return {};
     }
 
-    // Read-only boundary: an unknown guid means nobody hit it.
+    // Read-only boundary: an unknown guid means nobody hit it. Only needed
+    // when we match by a single guid (no npc-id group to gather).
     StringInterner::Id target_guid_id = guidInterner().find(target_guid);
-    if (target_guid_id == StringInterner::INVALID) {
+    if (target_npc_id == 0 && target_guid_id == StringInterner::INVALID) {
         return {};
     }
 
@@ -341,8 +358,16 @@ std::vector<ActorCombatStats> CombatDatabase::getDamageDoneToTarget(
     // Each actor's damage_dealt_table contains damage THEY dealt to others
     for (const auto& [source_guid, actor_table] : *actorMap_) {
         for (const auto& record : actor_table.damage_dealt_table) {
-            // Skip if not targeting our target
-            if (record.target_guid_id != target_guid_id) {
+            // Keep records aimed at our target. When a group is selected
+            // (npc id != 0), match every spawn sharing that npc id so the
+            // drill-down covers all copies of the enemy type; otherwise
+            // match the one exact guid.
+            if (target_npc_id != 0) {
+                if (MobWeightSettings::npcIdFromGuid(
+                        guidInterner().lookup(record.target_guid_id)) != target_npc_id) {
+                    continue;
+                }
+            } else if (record.target_guid_id != target_guid_id) {
                 continue;
             }
 
@@ -473,7 +498,10 @@ static std::vector<ActorCombatStats> rankHostileSources(
         return {};
     }
 
-    std::unordered_map<StringInterner::Id, ActorCombatStats> sourceStats;
+    // Keyed by uint64: high bit tags whether the key is an npc id (a merged
+    // enemy type) or a lone interned guid, so a guid id can't collide with
+    // an npc id that happens to share the same integer value.
+    std::unordered_map<uint64_t, ActorCombatStats> sourceStats;
     float duration_seconds = combat_db::calculateDurationSeconds(
         start_time_ms, end_time_ms, min_ts, max_ts);
 
@@ -496,9 +524,22 @@ static std::vector<ActorCombatStats> rankHostileSources(
         // A non-player creature can be a player's summon (a hunter pet, a
         // DK ghoul). Folding it into its owner would put that player in the
         // enemy list, so drop it - a player-owned pet is not an enemy source.
-        if (guidInterner().lookup(effective_source).starts_with("Player-")) {
+        std::string_view effective_source_sv = guidInterner().lookup(effective_source);
+        if (effective_source_sv.starts_with("Player-")) {
             continue;
         }
+
+        // WoW spawns many copies of the same add, each a distinct guid, so
+        // group spawns of one enemy type by NPC id (the 6th dash field of
+        // the guid) into a single row. This mirrors aggregatePetBreakdown's
+        // grouping. A creature with no npc id (rare) keeps its own guid so
+        // distinct nameless sources aren't collapsed together. The first
+        // guid seen for a group is kept as the representative so name
+        // resolution and the breakdown drill-down still work.
+        uint32_t npcId = MobWeightSettings::npcIdFromGuid(effective_source_sv);
+        uint64_t group_key = (npcId != 0)
+            ? (uint64_t{1} << 32 | npcId)
+            : (uint64_t{2} << 32 | effective_source);
 
         const auto* combat_table = (type == CombatMetricType::HealingDone)
             ? &actor_table.healing_done_table
@@ -509,9 +550,9 @@ static std::vector<ActorCombatStats> rankHostileSources(
             if (record.timestamp_ms < start_time_ms || record.timestamp_ms > end_time_ms) {
                 continue;
             }
-            auto& stats = sourceStats[effective_source];
+            auto& stats = sourceStats[group_key];
             if (stats.actor_guid.empty()) {
-                stats.actor_guid = std::string(guidInterner().lookup(effective_source));
+                stats.actor_guid = std::string(effective_source_sv);
             }
             stats.total_amount += record.amount;
             stats.effective_amount += record.effective_amount;

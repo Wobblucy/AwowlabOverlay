@@ -12,6 +12,7 @@
 #include "AvoidanceDatabase.h"
 #include "AbsorbDatabase.h"
 #include "Core/MeterBarRenderer.h"
+#include "Core/MobWeightSettings.h"
 #include "UI/SpellGroupSettings.h"
 
 class ActorColorGenerator;
@@ -160,10 +161,21 @@ public:
     MeterPanelConfig& getConfig() { return config_; }
     const MeterPanelConfig& getConfig() const { return config_; }
 
-    // Target selection for "Taken By" view
-    void setSelectedTarget(const std::string& target_guid) { selectedTargetGuid_ = target_guid; }
+    // Target selection for "Taken By" view. The drill-down covers every
+    // spawn of the target's enemy type, so we remember the npc id alongside
+    // the representative guid. An external click (enemy grid, map) selects
+    // one specific mob; resolving its npc id here keeps that consistent with
+    // the picker so those clicks group the whole type too. A guid with no
+    // npc id (npcIdFromGuid returns 0) means "just this one target".
+    void setSelectedTarget(const std::string& target_guid) {
+        selectedTargetGuid_ = target_guid;
+        selectedTargetNpcId_ = MobWeightSettings::npcIdFromGuid(target_guid);
+    }
     const std::string& getSelectedTarget() const { return selectedTargetGuid_; }
-    void clearSelectedTarget() { selectedTargetGuid_.clear(); }
+    void clearSelectedTarget() {
+        selectedTargetGuid_.clear();
+        selectedTargetNpcId_ = 0;
+    }
 
     // Replace the phase list for the current pull. Resets the phase
     // selection and clears any phase time filter that was active.
@@ -244,7 +256,8 @@ private:
     std::string cachedExpandedActorGuid_;
     CombatMetricType cachedExpandedMetric_ = CombatMetricType::DamageDealt;
     std::vector<SpellCombatStats> cachedExpandedBreakdown_;
-    std::string selectedTargetGuid_;  // Selected target for "Taken By" view
+    std::string selectedTargetGuid_;  // Selected target (representative guid) for "Taken By" view
+    uint32_t selectedTargetNpcId_ = 0;  // Enemy-type group of the selected target (0 = single mob)
     spell_grouping::SpellGroupSettings spellGroupSettings_;  // For blacklist filtering
 
     // Throttling: only refresh stats once per second (reduces CPU load)

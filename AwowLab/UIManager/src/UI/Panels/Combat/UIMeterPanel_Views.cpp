@@ -371,7 +371,11 @@ void UIMeterPanel::renderDamageTakenByView(
             bool clicked = ImGui::InvisibleButton("##pick",
                 ImVec2(availableWidth, config_.bar_height));
             if (clicked) {
+                // Seed both the representative guid (for the header name) and
+                // the enemy-type group (npc id) so the drill-down covers every
+                // spawn of this enemy type, matching the merged picker row.
                 selectedTargetGuid_ = e.actor_guid;
+                selectedTargetNpcId_ = MobWeightSettings::npcIdFromGuid(e.actor_guid);
             }
             if (ImGui::IsItemHovered()) {
                 ImGui::SetTooltip("Show who damaged %s", name.c_str());
@@ -408,6 +412,7 @@ void UIMeterPanel::renderDamageTakenByView(
     std::string clearBtnId = "X##clear" + std::to_string(instanceId_);
     if (awlui::Button(clearBtnId.c_str(), awlui::ButtonVariant::Ghost, awlui::ButtonSize::Sm)) {
         selectedTargetGuid_.clear();
+        selectedTargetNpcId_ = 0;
         return;
     }
     ImGui::Separator();
@@ -438,8 +443,8 @@ void UIMeterPanel::renderDamageTakenByView(
         bool useFullEncounter = (config_.time_mode == MeterTimeMode::FullEncounter);
         ui::TimeWindow window = ui::calculateTimeWindow(currentTime_ms, dbMinTime, dbMaxTime, useFullEncounter);
 
-        cachedCombatStats_ = combatDb->getDamageDoneToTarget(
-            selectedTargetGuid_, window.startTime, window.endTime, 100);
+        cachedCombatStats_ = combatDb->getDamageDoneToTargetGroup(
+            selectedTargetGuid_, selectedTargetNpcId_, window.startTime, window.endTime, 100);
 
         cachedGrandTotal_ = 0;
         for (const auto& s : cachedCombatStats_) {

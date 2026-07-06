@@ -267,9 +267,26 @@ public:
 
     // Get actors ranked by damage dealt TO a specific target
     // Returns source actors sorted by damage done to the target (descending)
-    // Used for "Taken By" meter view to see who did damage to a specific enemy
+    // Used for "Taken By" meter view to see who did damage to a specific enemy.
+    // Resolves the target guid's npc id and gathers every spawn of that enemy
+    // type (see getDamageDoneToTargetGroup); pass a guid with no npc id to
+    // match just that one target.
     std::vector<ActorCombatStats> getDamageDoneToTarget(
         const std::string& target_guid,
+        int32_t start_time_ms,
+        int32_t end_time_ms,
+        size_t max_results = 40
+    ) const;
+
+    // Same as getDamageDoneToTarget but with an explicit enemy-type group.
+    // The picker merges all spawns of one enemy type into a single row and
+    // remembers that row's npc id; passing it here makes the drill-down cover
+    // every spawn of that type combined. target_npc_id == 0 falls back to
+    // matching only the exact target_guid (a single mob, e.g. a map click on
+    // one specific spawn or an environment source).
+    std::vector<ActorCombatStats> getDamageDoneToTargetGroup(
+        const std::string& target_guid,
+        uint32_t target_npc_id,
         int32_t start_time_ms,
         int32_t end_time_ms,
         size_t max_results = 40
