@@ -9,6 +9,7 @@
 #include <functional>
 #include <optional>
 #include <unordered_map>
+#include <unordered_set>
 #include <mutex>
 #include <atomic>
 
@@ -45,7 +46,9 @@ struct CombatDataBundle {
     std::vector<MissedEvent> missedEvents;
     std::vector<DispelInterruptEvent> dispelEvents;
     std::vector<DeathEvent> deathEvents;
-    std::vector<AuraEvent> auraEvents;  // only Broken/BrokenSpell for now
+    std::vector<AuraEvent> auraEvents;  // Broken/BrokenSpell (CC breaks) +
+                                        // Applied/Removed/Refresh for tracked
+                                        // defensive spell ids only
 
     void clear() {
         actorMap.clear();
@@ -265,6 +268,15 @@ public:
     // Get spell name lookup map (spell_id -> name)
     const std::unordered_map<uint32_t, std::string>& getSpellNameMap() const { return spellIdToName_; }
 
+    // Spell ids to capture buff applies/removes for (the death recap's
+    // defensive tracking). Only auras for these ids are stored, so an empty
+    // set means no aura-apply capture at all - zero overhead. Set by the
+    // app from the user's tracked-defensives setting; safe to call between
+    // polls.
+    void setTrackedDefensiveIds(std::unordered_set<uint32_t> ids) {
+        trackedDefensiveIds_ = std::move(ids);
+    }
+
     // === Stats ===
 
     // Get parsing statistics
@@ -335,6 +347,10 @@ private:
     static constexpr size_t kMaxEmotesPerSegment = 256;
     std::unordered_map<uint32_t, LiveFirstCast> firstCasts_;
     std::vector<EmoteEvent> emoteEvents_;
+
+    // Spell ids to capture buff applies/removes for (death-recap defensive
+    // tracking). Empty by default: no aura-apply capture, no overhead.
+    std::unordered_set<uint32_t> trackedDefensiveIds_;
 
     // Player GUID -> spec id from COMBATANT_INFO. Session context like
     // guidToName_ (a player's spec does not stop being true when the

@@ -120,3 +120,11 @@ phases.no_emotes,本次尝试没有表情
 phases.no_rules,该首领还没有阶段规则
 phases.casts_header,本次尝试的首领施法
 meter.class_colors,按职业为条形着色
+defensives.title,Defensives (last 10s)
+defensives.pressed_fmt,pressed %ds before death
+defensives.active_at_death,active at death
+defensives.none,not used
+settings.tracked_defensives,Tracked defensives
+settings.tracked_defensives_hint,Spell IDs to check in the death recap
+settings.add,Add
+settings.remove,Remove

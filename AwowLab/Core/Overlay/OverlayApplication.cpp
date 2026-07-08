@@ -10,6 +10,8 @@
 #include <GLFW/glfw3.h>
 #include <iostream>
 #include <cstring>
+#include <cstdlib>
+#include <unordered_set>
 #include <algorithm>
 #include <optional>
 #include <atomic>
@@ -227,9 +229,19 @@ bool OverlayApplication::initLogManager() {
     if (auto* session = logManager_->getSession()) {
         stats_->attachSession(session);
     }
+    applyTrackedDefensives();
 
     std::cout << "Monitoring: " << logsFolder_.string() << "\n";
     return true;
+}
+
+void OverlayApplication::applyTrackedDefensives() {
+    if (!logManager_) return;
+    auto* session = logManager_->getSession();
+    if (!session) return;
+    const auto& ids = SettingsCache::instance().get().trackedDefensiveSpellIds;
+    session->setTrackedDefensiveIds(
+        std::unordered_set<uint32_t>(ids.begin(), ids.end()));
 }
 
 void OverlayApplication::wireLogManagerCallbacks() {
@@ -370,6 +382,7 @@ void OverlayApplication::changeLogFolder(const std::filesystem::path& newFolder)
     if (auto* session = logManager_->getSession()) {
         stats_->attachSession(session);
     }
+    applyTrackedDefensives();
 
     std::cout << "Monitoring: " << logsFolder_.string() << "\n";
 }
@@ -1177,7 +1190,9 @@ void OverlayApplication::renderUI() {
                                 guidToNameView,
                                 nullptr,  // iconLoader (not available in overlay)
                                 &guidToNameCopy,
-                                &spellIdToNameCopy
+                                &spellIdToNameCopy,
+                                stats_->getAuraDatabase(),
+                                &SettingsCache::instance().get().trackedDefensiveSpellIds
                             );
                         }
 
@@ -1394,6 +1409,62 @@ void OverlayApplication::renderSettingsWindow() {
                 LocalizationManager::getLocaleCode(chosen);
             SettingsCache::instance().markDirty();
             SettingsCache::instance().flush();
+        }
+
+        ImGui::Spacing();
+        ImGui::Separator();
+        ImGui::Spacing();
+
+        // --- Tracked defensives ---
+        ImGui::TextDisabled("%s", L("settings.tracked_defensives"));
+        ImGui::TextDisabled("%s", L("settings.tracked_defensives_hint"));
+
+        auto& tracked = SettingsCache::instance().get().trackedDefensiveSpellIds;
+        bool trackedChanged = false;
+
+        // Existing ids, each with a remove button. Show the log-learned name
+        // when we have one so the list is readable.
+        for (size_t i = 0; i < tracked.size(); ++i) {
+            ImGui::PushID(static_cast<int>(i));
+            std::string label = "#" + std::to_string(tracked[i]);
+            if (auto* session = logManager_ ? logManager_->getSession() : nullptr) {
+                const auto& names = session->getSpellNameMap();
+                auto it = names.find(tracked[i]);
+                if (it != names.end() && !it->second.empty()) {
+                    label = it->second + "  (#" + std::to_string(tracked[i]) + ")";
+                }
+            }
+            ImGui::TextUnformatted(label.c_str());
+            ImGui::SameLine();
+            if (awlui::Button(L("settings.remove"), awlui::ButtonVariant::Ghost,
+                              awlui::ButtonSize::Sm)) {
+                tracked.erase(tracked.begin() + static_cast<long>(i));
+                trackedChanged = true;
+                ImGui::PopID();
+                break;
+            }
+            ImGui::PopID();
+        }
+
+        // Add-by-id row.
+        ImGui::SetNextItemWidth(120.0f);
+        ImGui::InputText("##adddef", trackedDefInput_, sizeof(trackedDefInput_),
+                         ImGuiInputTextFlags_CharsDecimal);
+        ImGui::SameLine();
+        if (awlui::Button(L("settings.add"), awlui::ButtonVariant::Secondary,
+                          awlui::ButtonSize::Sm)) {
+            uint32_t id = static_cast<uint32_t>(strtoul(trackedDefInput_, nullptr, 10));
+            if (id > 0 && std::find(tracked.begin(), tracked.end(), id) == tracked.end()) {
+                tracked.push_back(id);
+                trackedChanged = true;
+            }
+            trackedDefInput_[0] = '\0';
+        }
+
+        if (trackedChanged) {
+            SettingsCache::instance().markDirty();
+            SettingsCache::instance().flush();
+            applyTrackedDefensives();  // start capturing the new set right away
         }
 
         ImGui::Spacing();

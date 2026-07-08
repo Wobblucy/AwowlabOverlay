@@ -120,3 +120,11 @@ phases.no_emotes,В этой попытке нет эмоций
 phases.no_rules,Для этого боя ещё нет правил фаз
 phases.casts_header,Способности босса в этой попытке
 meter.class_colors,Цвет полос по классу
+defensives.title,Defensives (last 10s)
+defensives.pressed_fmt,pressed %ds before death
+defensives.active_at_death,active at death
+defensives.none,not used
+settings.tracked_defensives,Tracked defensives
+settings.tracked_defensives_hint,Spell IDs to check in the death recap
+settings.add,Add
+settings.remove,Remove

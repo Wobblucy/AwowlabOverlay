@@ -1880,6 +1880,43 @@ bool LiveLogSession::parseAndStoreEvent(CombatDataBundle& target,
             target.deathEvents.push_back(std::move(ev));
         }
     }
+    // AURA APPLIED / REMOVED / REFRESH - captured ONLY for the spell ids the
+    // user tracks as defensives (usually a handful), so the death recap can
+    // tell whether the dying player pressed or was under a defensive. An
+    // empty tracked set (the default) skips all of this - no per-event cost
+    // beyond the spell-id lookup, which we do before building anything.
+    else if (eventType == "SPELL_AURA_APPLIED" || eventType == "SPELL_AURA_REMOVED" ||
+             eventType == "SPELL_AURA_REFRESH") {
+        if (!trackedDefensiveIds_.empty() &&
+            tokens.size() >= parser::EventParser<parser::SpellAuraAppliedTag>::expected_token_count()) {
+            auto data = parser::EventParser<parser::SpellAuraAppliedTag>::parse_and_return(tokens);
+            // Buffs on players only, and only tracked ids. Defensives are
+            // self-buffs, so DEBUFF and non-player targets never qualify.
+            if (data.aura_type == AuraType::BUFF &&
+                data.spell.spell_id > 0 &&
+                trackedDefensiveIds_.count(data.spell.spell_id) &&
+                awow::getActorTypeFromGuid(data.dest_guid) == ActorType::Player) {
+                if (!data.dest_guid.empty() && !data.dest_name.empty()) {
+                    guidToName_.try_emplace(std::string(data.dest_guid), std::string(data.dest_name));
+                }
+                spellIdToName_.try_emplace(data.spell.spell_id, std::string(data.spell.spell_name));
+
+                AuraEvent aura;
+                aura.target_guid = std::string(data.dest_guid);
+                aura.source_guid = std::string(data.source_guid);
+                aura.spell_id = data.spell.spell_id;
+                aura.spell_name = std::string(data.spell.spell_name);
+                aura.aura_type = data.aura_type;
+                aura.timestamp_ms = timestamp_ms;
+                aura.event_type = (eventType == "SPELL_AURA_REMOVED")
+                    ? AuraEventType::Removed
+                    : (eventType == "SPELL_AURA_REFRESH" ? AuraEventType::Refresh
+                                                         : AuraEventType::Applied);
+                aura.stacks = 1;
+                target.auraEvents.push_back(std::move(aura));
+            }
+        }
+    }
     // AURA BROKEN (for CC Breaks meter)
     else if (eventType == "SPELL_AURA_BROKEN") {
         if (tokens.size() >= parser::EventParser<parser::SpellAuraBrokenTag>::expected_token_count()) {

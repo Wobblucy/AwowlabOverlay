@@ -120,3 +120,11 @@ phases.no_emotes,이번 시도에 감정 표현 없음
 phases.no_rules,이 전투에 대한 페이즈 규칙이 아직 없습니다
 phases.casts_header,이번 시도의 우두머리 시전
 meter.class_colors,직업별로 막대 색상 표시
+defensives.title,Defensives (last 10s)
+defensives.pressed_fmt,pressed %ds before death
+defensives.active_at_death,active at death
+defensives.none,not used
+settings.tracked_defensives,Tracked defensives
+settings.tracked_defensives_hint,Spell IDs to check in the death recap
+settings.add,Add
+settings.remove,Remove

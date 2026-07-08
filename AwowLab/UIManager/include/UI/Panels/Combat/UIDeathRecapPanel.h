@@ -10,6 +10,7 @@
 #include "Database/CombatDatabase.h"
 #include "Database/DeathDatabase.h"
 #include "Database/ResourceDatabase.h"
+#include "Database/AuraDatabase.h"
 
 class ActorColorGenerator;
 namespace awow { class ISpellIconRenderer; }
@@ -52,7 +53,11 @@ public:
         const std::unordered_map<std::string_view, std::string_view>& guidToName,
         awow::ISpellIconRenderer* iconLoader,
         const std::unordered_map<std::string, std::string>* combatGuidToName,
-        const std::unordered_map<uint32_t, std::string>* spellNameFallback
+        const std::unordered_map<uint32_t, std::string>* spellNameFallback,
+        // Optional: aura data + the user's tracked-defensive spell ids drive
+        // the "Defensives (last 10s)" summary. Null/empty -> section hidden.
+        const AuraDatabase* auraDb = nullptr,
+        const std::vector<uint32_t>* trackedDefensiveIds = nullptr
     );
 
 private:
@@ -76,13 +81,34 @@ private:
     std::vector<ResourceEvent> cachedHealthHistory_;
     uint64_t cachedMaxHealth_ = 0;
 
+    // One tracked defensive's status at the selected death.
+    struct DefensiveStatus {
+        uint32_t spell_id = 0;
+        std::string name;            // from the log, empty if the aura never fired
+        enum class State { Pressed, ActiveAtDeath, Absent } state;
+        int32_t seconds_before = 0;  // for Pressed: how long before death
+    };
+    // Filled by loadSelectedDeath from the AuraDatabase; empty when the
+    // tracked list is empty (section then hidden).
+    std::vector<DefensiveStatus> cachedDefensives_;
+
+    // How far back "pressed a defensive" looks. Auras still active at death
+    // are shown regardless of when they were applied.
+    static constexpr int32_t kDefensiveWindowMs = 10000;
+
     // Filter slider (0-20%): hide hits smaller than this % of max HP.
     // Default 7% so small ticks don't drown out the actual killing blows.
     float eventFilterThreshold_ = 7.0f;
 
-    // Refresh cachedEvents_ / cachedHealthHistory_ for the selected death.
+    // Refresh cachedEvents_ / cachedHealthHistory_ / cachedDefensives_ for
+    // the selected death.
     void loadSelectedDeath(const CombatDatabase* combatDb,
-                           const ResourceDatabase* resourceDb);
+                           const ResourceDatabase* resourceDb,
+                           const AuraDatabase* auraDb = nullptr,
+                           const std::vector<uint32_t>* trackedDefensiveIds = nullptr);
+
+    // Render the "Defensives (last 10s)" summary for the selected death.
+    void renderDefensivesSummary();
 
     // Render helpers - each takes the fallback map so spell names in
     // the tables resolve from the combat log rather than the (unloaded)

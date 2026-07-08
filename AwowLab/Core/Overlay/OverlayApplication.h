@@ -85,6 +85,9 @@ private:
     // display and the manual language picker. Toggled by the gear, drawn
     // as a floating window on top of the meter.
     bool settingsOpen_ = false;
+    // Text buffer for the "add tracked defensive by spell id" input in the
+    // settings popup.
+    char trackedDefInput_[16] = {0};
     // Laid-out size of the settings window from its last render, fed to
     // updateModalAutoGrow so the OS window grows to fit it.
     float settingsMeasuredW_ = 0.0f;
@@ -101,6 +104,12 @@ private:
     // stats to its session. Shared by the initial start and by a folder
     // change so both paths hook up identically.
     void wireLogManagerCallbacks();
+
+    // Push the user's tracked-defensive spell ids into the live session so
+    // it captures buff applies/removes for them (for the death recap's
+    // defensive summary). Called after every (re)attach and whenever the
+    // tracked list is edited in Settings.
+    void applyTrackedDefensives();
 
     // Segment selection (Details-style indexing)
     // SIZE_MAX = Current (live), SIZE_MAX-1 = Overall, 0+ = historical pull index

@@ -120,3 +120,11 @@ phases.no_emotes,Aucun emote dans cet essai
 phases.no_rules,Aucune règle de phase pour cette rencontre
 phases.casts_header,Sorts du boss lors de cet essai
 meter.class_colors,Colorer les barres par classe
+defensives.title,Defensives (last 10s)
+defensives.pressed_fmt,pressed %ds before death
+defensives.active_at_death,active at death
+defensives.none,not used
+settings.tracked_defensives,Tracked defensives
+settings.tracked_defensives_hint,Spell IDs to check in the death recap
+settings.add,Add
+settings.remove,Remove

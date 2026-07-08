@@ -120,3 +120,11 @@ phases.no_emotes,Keine Emotes in diesem Versuch
 phases.no_rules,Noch keine Phasenregeln für diesen Kampf
 phases.casts_header,Boss-Zauber in diesem Versuch
 meter.class_colors,Balken nach Klasse färben
+defensives.title,Defensives (last 10s)
+defensives.pressed_fmt,pressed %ds before death
+defensives.active_at_death,active at death
+defensives.none,not used
+settings.tracked_defensives,Tracked defensives
+settings.tracked_defensives_hint,Spell IDs to check in the death recap
+settings.add,Add
+settings.remove,Remove

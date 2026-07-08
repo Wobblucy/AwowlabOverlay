@@ -120,3 +120,11 @@ phases.no_emotes,No hay emotes en este intento
 phases.no_rules,Aún no hay reglas de fase para este encuentro
 phases.casts_header,Lanzamientos del jefe en este intento
 meter.class_colors,Colorear barras por clase
+defensives.title,Defensives (last 10s)
+defensives.pressed_fmt,pressed %ds before death
+defensives.active_at_death,active at death
+defensives.none,not used
+settings.tracked_defensives,Tracked defensives
+settings.tracked_defensives_hint,Spell IDs to check in the death recap
+settings.add,Add
+settings.remove,Remove

@@ -87,6 +87,14 @@ public:
         // Overlay logs folder path (persisted so user doesn't have to pick every time)
         std::string overlayLogsFolder;
 
+        // Spell ids the user wants tracked as defensives. The death recap
+        // shows, for each of these, whether the dying player pressed it in
+        // the last 10s or had it active at death. Empty by default (the
+        // feature shows nothing until the user adds ids in Settings), and
+        // parsing only stores aura applies/removes for ids in this list, so
+        // an empty list costs nothing.
+        std::vector<uint32_t> trackedDefensiveSpellIds;
+
         // Top-level file entries not handled by the fields above, kept as
         // raw JSON (entry name -> JSON value text). They are read on load
         // and written back on save, so optional features can keep their

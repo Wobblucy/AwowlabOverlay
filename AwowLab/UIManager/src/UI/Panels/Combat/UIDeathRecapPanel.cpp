@@ -66,7 +66,9 @@ void UIDeathRecapPanel::render(
     const std::unordered_map<std::string_view, std::string_view>& guidToName,
     awow::ISpellIconRenderer* iconLoader,
     const std::unordered_map<std::string, std::string>* combatGuidToName,
-    const std::unordered_map<uint32_t, std::string>* spellNameFallback
+    const std::unordered_map<uint32_t, std::string>* spellNameFallback,
+    const AuraDatabase* auraDb,
+    const std::vector<uint32_t>* trackedDefensiveIds
 ) {
     (void)colorGen;
     (void)guidToName;
@@ -84,7 +86,7 @@ void UIDeathRecapPanel::render(
         recenterFrames_ = 30;  // ~half a second at 60fps covers the auto-grow
         // Load the auto-selected death (most recent) so the right pane
         // has content the moment the window opens.
-        loadSelectedDeath(combatDb, resourceDb);
+        loadSelectedDeath(combatDb, resourceDb, auraDb, trackedDefensiveIds);
     }
     if (recenterFrames_ > 0) {
         --recenterFrames_;
@@ -123,7 +125,7 @@ void UIDeathRecapPanel::render(
         ImGui::EndChild();
 
         if (selectedDeathIndex_ != prevIndex) {
-            loadSelectedDeath(combatDb, resourceDb);
+            loadSelectedDeath(combatDb, resourceDb, auraDb, trackedDefensiveIds);
         }
 
         ImGui::Separator();
@@ -142,14 +144,60 @@ void UIDeathRecapPanel::render(
 }
 
 void UIDeathRecapPanel::loadSelectedDeath(const CombatDatabase* combatDb,
-                                          const ResourceDatabase* resourceDb) {
+                                          const ResourceDatabase* resourceDb,
+                                          const AuraDatabase* auraDb,
+                                          const std::vector<uint32_t>* trackedDefensiveIds) {
     cachedEvents_.clear();
     cachedHealthHistory_.clear();
+    cachedDefensives_.clear();
     cachedMaxHealth_ = 0;
     if (selectedDeathIndex_ >= deaths_.size()) return;
 
     const DeathEvent& death = deaths_[selectedDeathIndex_];
     int32_t startTime = (death.timestamp_ms > 30000) ? death.timestamp_ms - 30000 : 0;
+
+    // Defensive summary: for each tracked spell id, was it pressed in the
+    // last 10s, still active at death, or absent? Driven off the aura
+    // instances the AuraDatabase built for this player.
+    if (auraDb && trackedDefensiveIds && !trackedDefensiveIds->empty()) {
+        int32_t deathT = death.timestamp_ms;
+        int32_t windowStart = deathT - kDefensiveWindowMs;
+        auto instances = auraDb->getAllAurasOnTarget(death.actor_guid);
+        for (uint32_t spellId : *trackedDefensiveIds) {
+            // Find the best-matching instance for this spell id: prefer one
+            // active at death, else the most recent applied within the window.
+            const AuraInstance* activeAtDeath = nullptr;
+            const AuraInstance* pressedInWindow = nullptr;
+            std::string name;
+            for (const auto* inst : instances) {
+                if (inst->spell_id != spellId) continue;
+                if (name.empty()) name = inst->spell_name;
+                if (inst->isActiveAt(deathT)) {
+                    activeAtDeath = inst;
+                }
+                if (inst->applied_at_ms >= windowStart && inst->applied_at_ms <= deathT) {
+                    if (!pressedInWindow || inst->applied_at_ms > pressedInWindow->applied_at_ms) {
+                        pressedInWindow = inst;
+                    }
+                }
+            }
+
+            DefensiveStatus status;
+            status.spell_id = spellId;
+            status.name = name;  // empty if we never saw this id for this player
+            if (pressedInWindow) {
+                // Pressed within the window (whether or not still up at death).
+                status.state = DefensiveStatus::State::Pressed;
+                status.seconds_before = (deathT - pressedInWindow->applied_at_ms) / 1000;
+            } else if (activeAtDeath) {
+                // Applied earlier but still covering them when they died.
+                status.state = DefensiveStatus::State::ActiveAtDeath;
+            } else {
+                status.state = DefensiveStatus::State::Absent;
+            }
+            cachedDefensives_.push_back(std::move(status));
+        }
+    }
 
     if (combatDb) {
         // 0 = no cap on returned events; the UI filters via the slider.
@@ -222,6 +270,9 @@ void UIDeathRecapPanel::renderSelectedDeathPanel(
         ImGui::TextColored(ImVec4(1.0f, 0.4f, 0.4f, 1.0f), "%s", name);
     }
 
+    // Defensives summary - "did they press / have a defensive before dying".
+    renderDefensivesSummary();
+
     // Filter slider.
     ImGui::Spacing();
     ImGui::SetNextItemWidth(180.0f);
@@ -244,6 +295,49 @@ void UIDeathRecapPanel::renderSelectedDeathPanel(
     ImGui::Separator();
 
     renderEventList(iconLoader, spellNameFallback);
+}
+
+void UIDeathRecapPanel::renderDefensivesSummary() {
+    // Nothing to say if the user tracks no defensives (list empty ->
+    // cachedDefensives_ empty). Keeps the panel unchanged for anyone who
+    // hasn't configured the feature.
+    if (cachedDefensives_.empty()) return;
+
+    ImGui::Spacing();
+    ImGui::TextColored(ImVec4(0.8f, 0.9f, 1.0f, 1.0f), "%s", L("defensives.title"));
+
+    for (const auto& d : cachedDefensives_) {
+        // Name: from the log if we ever saw the aura, else the raw id so
+        // an absent tracked defensive still reads clearly.
+        char nameBuf[64];
+        const char* name = d.name.c_str();
+        if (d.name.empty()) {
+            snprintf(nameBuf, sizeof(nameBuf), "#%u", d.spell_id);
+            name = nameBuf;
+        }
+
+        switch (d.state) {
+            case DefensiveStatus::State::Pressed: {
+                ImGui::TextColored(ImVec4(0.4f, 0.85f, 0.4f, 1.0f), "+ %s", name);
+                ImGui::SameLine();
+                ImGui::TextDisabled(L("defensives.pressed_fmt"), d.seconds_before);
+                break;
+            }
+            case DefensiveStatus::State::ActiveAtDeath: {
+                ImGui::TextColored(ImVec4(0.4f, 0.85f, 0.4f, 1.0f), "+ %s", name);
+                ImGui::SameLine();
+                ImGui::TextDisabled("%s", L("defensives.active_at_death"));
+                break;
+            }
+            case DefensiveStatus::State::Absent: {
+                ImGui::TextDisabled("- %s   %s", name, L("defensives.none"));
+                break;
+            }
+        }
+    }
+
+    ImGui::Spacing();
+    ImGui::Separator();
 }
 
 void UIDeathRecapPanel::renderHealthChart(float width, float height) {

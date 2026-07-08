@@ -162,3 +162,11 @@ phases.no_emotes,No emotes in this pull
 phases.no_rules,No phase rules for this encounter yet
 phases.casts_header,Boss casts this pull
 meter.class_colors,Color bars by class
+defensives.title,Defensives (last 10s)
+defensives.pressed_fmt,pressed %ds before death
+defensives.active_at_death,active at death
+defensives.none,not used
+settings.tracked_defensives,Tracked defensives
+settings.tracked_defensives_hint,Spell IDs to check in the death recap
+settings.add,Add
+settings.remove,Remove

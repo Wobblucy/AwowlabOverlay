@@ -78,6 +78,15 @@ std::string UnifiedSettings::serializeToJson(const AllSettings& settings) {
     // Overlay logs folder
     doc.AddMember("overlayLogsFolder", rapidjson::Value(settings.overlayLogsFolder.c_str(), alloc), alloc);
 
+    // Tracked defensive spell ids (death-recap "did they press a defensive")
+    {
+        rapidjson::Value arr(rapidjson::kArrayType);
+        for (uint32_t id : settings.trackedDefensiveSpellIds) {
+            arr.PushBack(id, alloc);
+        }
+        doc.AddMember("trackedDefensiveSpellIds", arr, alloc);
+    }
+
     // Entries this build doesn't handle itself - written back verbatim so
     // nothing another build stored here gets lost
     for (const auto& [name, jsonText] : settings.extraValues) {
@@ -203,6 +212,13 @@ bool UnifiedSettings::deserializeFromJson(const std::string& json, AllSettings& 
         settings.overlayLogsFolder = doc["overlayLogsFolder"].GetString();
     }
 
+    if (doc.HasMember("trackedDefensiveSpellIds") && doc["trackedDefensiveSpellIds"].IsArray()) {
+        settings.trackedDefensiveSpellIds.clear();
+        for (const auto& v : doc["trackedDefensiveSpellIds"].GetArray()) {
+            if (v.IsUint()) settings.trackedDefensiveSpellIds.push_back(v.GetUint());
+        }
+    }
+
     // Keep every entry the fields above didn't claim, as raw JSON. This
     // carries values from optional features (and future versions) through
     // a load/save cycle untouched.
@@ -215,6 +231,7 @@ bool UnifiedSettings::deserializeFromJson(const std::string& json, AllSettings& 
         "bossTimerSettingsJson", "facingIndicatorSettingsJson",
         "mobWeightSettingsJson", "phaseSettingsJson", "meterClassColors",
         "customModelRotationsJson", "overlayLogsFolder",
+        "trackedDefensiveSpellIds",
     };
 
     settings.extraValues.clear();
