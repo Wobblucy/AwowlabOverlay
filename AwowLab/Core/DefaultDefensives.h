@@ -11,6 +11,13 @@
 // defensives, one to a few per class, gathered from general familiarity with
 // the game. This is a hand-written starter set, not a copy of any third
 // party's curated data.
+//
+// IMPORTANT: these must be the BUFF (aura) ids, not the cast/ability ids.
+// The death recap matches against SPELL_AURA_APPLIED, so a cast id that
+// differs from the buff id (e.g. Blur casts 198589 but applies aura 212800)
+// would never match and the defensive would silently never show. When adding
+// an id, take it from a SPELL_AURA_APPLIED line in a real log, not the
+// tooltip/cast id.
 namespace awow {
 
 inline const std::vector<uint32_t>& defaultDefensiveSpellIds() {
@@ -24,7 +31,7 @@ inline const std::vector<uint32_t>& defaultDefensiveSpellIds() {
 
         // Paladin
         642,     // Divine Shield
-        498,     // Divine Protection
+        403876,  // Divine Protection (Prot buff id; base/cast is 498)
         86659,   // Guardian of Ancient Kings
         31850,   // Ardent Defender
         184662,  // Shield of Vengeance
@@ -66,7 +73,7 @@ inline const std::vector<uint32_t>& defaultDefensiveSpellIds() {
         108416,  // Dark Pact
 
         // Monk
-        115203,  // Fortifying Brew
+        120954,  // Fortifying Brew (buff id; cast is 115203)
         122470,  // Touch of Karma
         122783,  // Diffuse Magic
         122278,  // Dampen Harm
@@ -77,13 +84,13 @@ inline const std::vector<uint32_t>& defaultDefensiveSpellIds() {
         102342,  // Ironbark
 
         // Demon Hunter
-        198589,  // Blur
+        212800,  // Blur (buff id; cast is 198589)
         187827,  // Metamorphosis (Vengeance)
         196555,  // Netherwalk
 
         // Evoker
         363916,  // Obsidian Scales
-        374348,  // Renewing Blaze
+        374349,  // Renewing Blaze (buff id; cast is 374348)
     };
     return ids;
 }
