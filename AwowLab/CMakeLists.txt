@@ -30,6 +30,7 @@ add_custom_command(
 )
 
 add_executable(AwowLabOverlay WIN32
+    Core/DefaultDefensives.h
     Core/ErrorLogger.h
     Core/LocalizationManager.cpp
     Core/LocalizationManager.h

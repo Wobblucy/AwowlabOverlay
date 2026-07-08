@@ -1,5 +1,6 @@
 #include "UnifiedSettings.h"
 #include "ErrorLogger.h"
+#include "DefaultDefensives.h"
 
 #include <rapidjson/document.h>
 #include <rapidjson/writer.h>
@@ -432,6 +433,14 @@ void SettingsCache::initialize() {
         std::cout << "Settings cache initialized with defaults.\n";
     }
 #endif
+
+    // First run only (no settings file existed): seed the tracked-defensives
+    // list with a starter set. A returning user who deliberately cleared the
+    // list has a file on disk, so this never re-populates behind their back.
+    if (!loadedFromFile && settings_.trackedDefensiveSpellIds.empty()) {
+        settings_.trackedDefensiveSpellIds = awow::defaultDefensiveSpellIds();
+        dirty_ = true;
+    }
 
     // Let the host application reconcile the freshly loaded settings with
     // whatever it keeps outside the file. No-op when nothing is registered
